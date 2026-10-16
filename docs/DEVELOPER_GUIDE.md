@@ -2,6 +2,7 @@
 
 **Author:** Rik Doclo  
 **Version:** 1.0.0  
+**Repository:** [https://github.com/rikdoclo/wowool-java-sdk](https://github.com/rikdoclo/wowool-java-sdk)  
 **Java Compatibility:** Java 22+ (including Java 25 LTS)
 
 ---

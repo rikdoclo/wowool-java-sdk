@@ -1,8 +1,10 @@
 # Wowool Java SDK
 
+[![CI Build](https://github.com/rikdoclo/wowool-java-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/rikdoclo/wowool-java-sdk/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-22%2B%20(LTS%2025)-orange.svg)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Engine](https://img.shields.io/badge/Engine-Wowool%20Native%20C%2B%2B%203.3.2-green.svg)](https://wowool.com)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-rikdoclo%2Fwowool--java--sdk-181717?logo=github)](https://github.com/rikdoclo/wowool-java-sdk)
 
 High-performance, idiomatic native **Java SDK for the Wowool NLP & Linguistic Engine**, built on **Project Panama** (the Foreign Function & Memory API - JEP 454 / Java 22+).
 
@@ -54,9 +56,21 @@ This SDK connects directly to the underlying C++ runtime (`libwowool.3.3.2.dylib
 
 ---
 
-## Installation
+## Installation & Getting Started
 
-Add the dependency to your `pom.xml`:
+### 1. Build & Install Locally from GitHub
+
+Clone the repository and install the SDK into your local Maven repository (`~/.m2/repository`):
+
+```bash
+git clone https://github.com/rikdoclo/wowool-java-sdk.git
+cd wowool-java-sdk
+mvn clean install
+```
+
+### 2. Add Dependency to Your Project
+
+Add the dependency to your project's `pom.xml`:
 
 ```xml
 <dependency>
@@ -66,7 +80,9 @@ Add the dependency to your `pom.xml`:
 </dependency>
 ```
 
-When running your Java application, ensure native access is enabled:
+### 3. JVM Native Access Flag
+
+When running your Java application, Project Panama requires the native access flag:
 
 ```bash
 java --enable-native-access=ALL-UNNAMED -jar your-application.jar
@@ -216,6 +232,15 @@ mvn test
 
 For in-depth architecture, memory management, and enterprise integration patterns, see:
 - [Developer Guide & Architecture](docs/DEVELOPER_GUIDE.md)
+
+---
+
+## Contributing & Support
+
+- **Repository:** [https://github.com/rikdoclo/wowool-java-sdk](https://github.com/rikdoclo/wowool-java-sdk)
+- **Issues & Bug Reports:** [GitHub Issues](https://github.com/rikdoclo/wowool-java-sdk/issues)
+
+Pull requests and issues are welcome!
 
 ---
 

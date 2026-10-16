@@ -8,6 +8,34 @@
   <version>1.0.0</version>
   <name>Wowool Java SDK</name>
   <description>Official High-Performance Native Java SDK for the Wowool Linguistic Engine using Project Panama (FFM API)</description>
+  <url>https://github.com/rikdoclo/wowool-java-sdk</url>
+
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>Rik Doclo</name>
+      <url>https://github.com/rikdoclo</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:git://github.com/rikdoclo/wowool-java-sdk.git</connection>
+    <developerConnection>scm:git:ssh://github.com:rikdoclo/wowool-java-sdk.git</developerConnection>
+    <url>https://github.com/rikdoclo/wowool-java-sdk</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/rikdoclo/wowool-java-sdk/issues</url>
+  </issueManagement>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
