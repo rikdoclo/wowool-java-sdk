@@ -161,4 +161,18 @@ class ModelAndConfigTest {
         assertEquals("Engine failure", ex.getMessage());
         assertSame(cause, ex.getCause());
     }
+
+    @Test
+    @DisplayName("Verify standalone ~/.wowool default discovery")
+    void testStandardWowoolDiscovery() {
+        Path home = Path.of(System.getProperty("user.home"));
+        Path expectedLib = home.resolve(".wowool/lib");
+        Path expectedModels = home.resolve(".wowool/models");
+
+        Path dylibDir = com.wowool.sdk.internal.ffi.WowoolPaths.resolveDylibDir();
+        Path wowoolRoot = com.wowool.sdk.internal.ffi.WowoolPaths.resolveWowoolRoot();
+
+        assertEquals(expectedLib, dylibDir);
+        assertEquals(expectedModels, wowoolRoot);
+    }
 }
