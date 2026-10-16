@@ -164,6 +164,23 @@ public final class WowoolPipeline implements AutoCloseable {
         return languagePath;
     }
 
+    /**
+     * Inspects the binary metadata and taxonomy of a loaded domain by index.
+     *
+     * @param domainIndex Index in the domain cascade (0-based)
+     * @return JSON string containing concepts, taxonomy, and rules
+     */
+    public String domainInfo(int domainIndex) {
+        ensureOpen();
+        if (domainIndex < 0 || domainIndex >= domainPtrs.size()) {
+            throw new IndexOutOfBoundsException("Invalid domain index: " + domainIndex + " (domain count: " + domainPtrs.size() + ")");
+        }
+        try (Arena callArena = Arena.ofConfined()) {
+            MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
+            return WowoolNative.getDomainInfo(domainPtrs.get(domainIndex), exInfo);
+        }
+    }
+
     private void ensureOpen() {
         if (closed.get()) {
             throw new IllegalStateException("WowoolPipeline has been closed.");

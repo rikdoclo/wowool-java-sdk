@@ -192,4 +192,21 @@ public class WowoolSdkTest {
             assertTrue(executor.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS));
         }
     }
+
+    @Test
+    @DisplayName("Test native C ABI metadata methods (engine.info, engine.languages, pipeline.domainInfo)")
+    void testNativeMetadata() {
+        String info = engine.info();
+        assertNotNull(info);
+        assertTrue(info.contains("sdk_version"));
+
+        String langs = engine.languages();
+        assertNotNull(langs);
+
+        try (WowoolPipeline pipeline = engine.pipeline("dutch", "entity")) {
+            String domainInfo = pipeline.domainInfo(0);
+            assertNotNull(domainInfo);
+            assertTrue(domainInfo.length() > 5);
+        }
+    }
 }

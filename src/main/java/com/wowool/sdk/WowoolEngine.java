@@ -139,6 +139,28 @@ public final class WowoolEngine implements AutoCloseable {
         return new DomainCompiler(this);
     }
 
+    /**
+     * Retrieves the native engine runtime capabilities and version metadata as a JSON string.
+     */
+    public String info() {
+        ensureOpen();
+        try (Arena callArena = Arena.ofConfined()) {
+            MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
+            return WowoolNative.getEngineInfo(enginePtr, callArena, exInfo);
+        }
+    }
+
+    /**
+     * Retrieves registered languages and dictionaries in the native engine as a JSON string.
+     */
+    public String languages() {
+        ensureOpen();
+        try (Arena callArena = Arena.ofConfined()) {
+            MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
+            return WowoolNative.getEngineLanguages(enginePtr, callArena, exInfo);
+        }
+    }
+
     public WowoolConfig config() {
         return config;
     }

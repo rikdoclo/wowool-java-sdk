@@ -42,6 +42,9 @@ public final class WowoolNative {
     private static MethodHandle lidIdentSectionHandle;
     private static MethodHandle lidIdentSectionJsonHandle;
     private static MethodHandle compileDomainHandle;
+    private static MethodHandle engineLanguagesHandle;
+    private static MethodHandle engineInfoHandle;
+    private static MethodHandle domainInfoHandle;
 
     private WowoolNative() {}
 
@@ -163,6 +166,21 @@ public final class WowoolNative {
             compileDomainHandle = linker.downcallHandle(
                 lookup.find("tir_api_compile_domain").orElseThrow(),
                 FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
+            );
+
+            // tir_api_engine_languages(tir_object *c_eng, size_t *c_buffer_size, tir_exception *ex_info)
+            lookup.find("tir_api_engine_languages").ifPresent(sym ->
+                engineLanguagesHandle = linker.downcallHandle(sym, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+            );
+
+            // tir_api_engine_info(tir_object *c_eng, size_t *c_buffer_size, tir_exception *ex_info)
+            lookup.find("tir_api_engine_info").ifPresent(sym ->
+                engineInfoHandle = linker.downcallHandle(sym, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+            );
+
+            // tir_api_domain_info(tir_object *c_domain, tir_exception *ex_info)
+            lookup.find("tir_api_domain_info").ifPresent(sym ->
+                domainInfoHandle = linker.downcallHandle(sym, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
             );
 
             loaded = true;
@@ -297,6 +315,44 @@ public final class WowoolNative {
             if (resPtr == null || resPtr.address() == 0) {
                 return "{}";
             }
+            return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
+        } catch (Throwable t) {
+            throw rethrow(t);
+        }
+    }
+
+    public static String getEngineLanguages(MemorySegment enginePtr, Arena arena, MemorySegment exInfo) {
+        if (engineLanguagesHandle == null) return "{}";
+        try {
+            MemorySegment sizeSeg = arena.allocate(ValueLayout.JAVA_LONG);
+            MemorySegment resPtr = (MemorySegment) engineLanguagesHandle.invokeExact(enginePtr, sizeSeg, exInfo);
+            checkException("tir_api_engine_languages", exInfo);
+            if (resPtr == null || resPtr.address() == 0) return "{}";
+            return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
+        } catch (Throwable t) {
+            throw rethrow(t);
+        }
+    }
+
+    public static String getEngineInfo(MemorySegment enginePtr, Arena arena, MemorySegment exInfo) {
+        if (engineInfoHandle == null) return "{}";
+        try {
+            MemorySegment sizeSeg = arena.allocate(ValueLayout.JAVA_LONG);
+            MemorySegment resPtr = (MemorySegment) engineInfoHandle.invokeExact(enginePtr, sizeSeg, exInfo);
+            checkException("tir_api_engine_info", exInfo);
+            if (resPtr == null || resPtr.address() == 0) return "{}";
+            return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
+        } catch (Throwable t) {
+            throw rethrow(t);
+        }
+    }
+
+    public static String getDomainInfo(MemorySegment domainPtr, MemorySegment exInfo) {
+        if (domainInfoHandle == null) return "{}";
+        try {
+            MemorySegment resPtr = (MemorySegment) domainInfoHandle.invokeExact(domainPtr, exInfo);
+            checkException("tir_api_domain_info", exInfo);
+            if (resPtr == null || resPtr.address() == 0) return "{}";
             return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
         } catch (Throwable t) {
             throw rethrow(t);
