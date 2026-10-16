@@ -192,6 +192,26 @@ try (WowoolEngine engine = WowoolEngine.create()) {
 
 ---
 
+### 4. Concurrent Analysis with Pipeline Pooling
+
+For multi-threaded services (Spring Boot, Quarkus, Obscuro), `WowoolPipelinePool` maintains pre-warmed pipelines for parallel processing with zero lock contention:
+
+```java
+import com.wowool.sdk.WowoolEngine;
+import com.wowool.sdk.WowoolPipelinePool;
+import com.wowool.sdk.model.WowoolDocument;
+
+try (WowoolEngine engine = WowoolEngine.create();
+     WowoolPipelinePool pool = engine.pool("dutch", 8, "entity")) {
+
+    // Safely called concurrently from multiple worker threads
+    WowoolDocument doc = pool.analyze("Jan Janssen woont in Amsterdam.");
+    System.out.println("Canonical: " + doc.findFirst("Person").get().canonical());
+}
+```
+
+---
+
 ## Configuration & Environment Variables
 
 The SDK automatically resolves paths using standard conventions, but can be overridden:

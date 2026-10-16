@@ -182,27 +182,28 @@ if (!result.success()) {
 
 ### Pipeline Pooling for Multi-Threaded Services
 
-For high-throughput Spring Boot or Quarkus microservices processing concurrent HTTP requests, do not share a single pipeline instance across concurrent threads. Instead, maintain an **object pool** (e.g. using Apache Commons Pool) or `ThreadLocal` pipelines:
+For high-throughput Spring Boot or Quarkus microservices processing concurrent HTTP requests, do not share a single pipeline instance across concurrent threads. Instead, use the built-in **`WowoolPipelinePool`**:
 
 ```java
-public class ThreadLocalPipelinePool implements AutoCloseable {
-    private final WowoolEngine engine;
-    private final ThreadLocal<WowoolPipeline> pipelineHolder;
+import com.wowool.sdk.WowoolEngine;
+import com.wowool.sdk.WowoolPipelinePool;
+import com.wowool.sdk.model.WowoolDocument;
 
-    public ThreadLocalPipelinePool(WowoolEngine engine, String language, String... domains) {
-        this.engine = engine;
-        this.pipelineHolder = ThreadLocal.withInitial(() -> engine.pipeline(language, domains));
-    }
+// Pre-warms 8 native pipelines for concurrent worker threads:
+try (WowoolPipelinePool pool = engine.pool("dutch", 8, "entity")) {
 
-    public WowoolDocument analyze(String text) {
-        return pipelineHolder.get().analyze(text);
-    }
-
-    @Override
-    public void close() {
-        // cleanup thread locals
-    }
+    // Safely called concurrently by multiple HTTP / worker threads:
+    WowoolDocument doc = pool.analyze("Jan Janssen woont in Amsterdam.");
+    System.out.println("Canonical: " + doc.findFirst("Person").get().canonical());
 }
+```
+
+Or using the loan pattern with custom logic:
+```java
+String literal = pool.withPipeline(pipeline -> {
+    WowoolDocument doc = pipeline.analyze("Tekst");
+    return doc.findFirst("Person").map(EntitySpan::canonical).orElse("");
+});
 ```
 
 ---

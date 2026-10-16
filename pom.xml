@@ -77,7 +77,7 @@
         <version>3.6.0</version>
         <configuration>
           <!-- Panama Foreign Function & Memory API requires native access permission -->
-          <argLine>--enable-native-access=ALL-UNNAMED</argLine>
+          <argLine>--enable-native-access=ALL-UNNAMED,com.wowool.sdk</argLine>
         </configuration>
       </plugin>
       <plugin>
