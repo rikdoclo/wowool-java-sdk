@@ -17,7 +17,9 @@
 package com.wowool.sdk.model;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Represents an extracted linguistic entity or semantic concept within a document.
@@ -51,6 +53,67 @@ public record EntitySpan(
      */
     public boolean is(String expectedUri) {
         return uri != null && uri.equalsIgnoreCase(expectedUri);
+    }
+
+    /**
+     * Retrieves the canonical/normalized representation of this entity if present (from attribute "canonical"),
+     * or falls back to the surface literal text.
+     *
+     * @return Normalized canonical representation or raw literal
+     */
+    public String canonical() {
+        Object val = attributes.get("canonical");
+        if (val instanceof List<?> list && !list.isEmpty()) {
+            return String.valueOf(list.getFirst());
+        }
+        if (val != null) {
+            return String.valueOf(val);
+        }
+        return literal;
+    }
+
+    /**
+     * Checks if a specific attribute is present in this entity's attributes.
+     *
+     * @param key Attribute key name
+     * @return true if present, false otherwise
+     */
+    public boolean hasAttribute(String key) {
+        return attributes != null && attributes.containsKey(key);
+    }
+
+    /**
+     * Retrieves the first string representation of an attribute, handling both scalar and array attributes.
+     *
+     * @param key Attribute key name
+     * @return Optional containing the string value if present
+     */
+    public Optional<String> firstAttribute(String key) {
+        Object val = attributes.get(key);
+        if (val instanceof List<?> list && !list.isEmpty()) {
+            return Optional.of(String.valueOf(list.getFirst()));
+        }
+        if (val != null) {
+            return Optional.of(String.valueOf(val));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Retrieves an attribute as a list of strings, safely converting scalar values to a singleton list.
+     *
+     * @param key Attribute key name
+     * @return Immutable list of string values, or empty list if not present
+     */
+    public List<String> getListAttribute(String key) {
+        Object val = attributes.get(key);
+        if (val instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        if (val != null) {
+            return List.of(String.valueOf(val));
+        }
+        return Collections.emptyList();
     }
 
     /**

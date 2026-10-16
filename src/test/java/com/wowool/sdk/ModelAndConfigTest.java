@@ -79,17 +79,63 @@ class ModelAndConfigTest {
 
         List<EntitySpan> persons = doc.entities("Person");
         assertEquals(1, persons.size());
-        assertEquals("Jan Janssen", persons.getFirst().literal());
-        assertEquals("male", persons.getFirst().getAttribute("gender"));
-        assertEquals(11, persons.getFirst().length());
+        EntitySpan person = persons.getFirst();
+        assertEquals("Jan Janssen", person.literal());
+        assertEquals("Jan Janssen", person.canonical());
+        assertTrue(person.hasAttribute("gender"));
+        assertFalse(person.hasAttribute("non_existent"));
+        assertEquals(Optional.of("male"), person.firstAttribute("gender"));
+        assertEquals(List.of("male"), person.getListAttribute("gender"));
+        assertEquals("male", person.getAttribute("gender"));
+        assertEquals(11, person.length());
 
         Optional<EntitySpan> city = doc.findFirst("City");
         assertTrue(city.isPresent());
         assertEquals("Amsterdam", city.get().literal());
+        assertEquals("Amsterdam", city.get().canonical());
         assertEquals("Netherlands", city.get().getAttribute("country"));
 
         assertTrue(t1.hasFlag("init-cap"));
         assertFalse(t1.hasFlag("non-existent-flag"));
+
+        // Spatial queries
+        List<EntitySpan> subEntities = doc.entitiesBetween(0, 15);
+        assertEquals(1, subEntities.size());
+        assertEquals("Person", subEntities.getFirst().uri());
+
+        List<TokenSpan> personTokens = doc.tokensFor(person);
+        assertEquals(2, personTokens.size());
+        assertEquals("Jan", personTokens.get(0).literal());
+        assertEquals("Janssen", personTokens.get(1).literal());
+    }
+
+    @Test
+    @DisplayName("Test WowoolJsonParser with direct attribute conversion")
+    void testJsonParserDirectAttributes() throws Exception {
+        String mockJson = """
+            {
+              "language": "dutch",
+              "sentences": [
+                [0, 0, 31, [
+                  [2, 0, 11, "Person", {"gender": ["male"], "canonical": ["Jan Janssen"]}],
+                  [3, 0, 3, "Jan", ["init-cap"], [["jan", "N(prop)", "jan"]]],
+                  [3, 4, 11, "Janssen", ["init-cap"], [["janssen", "N(prop)", "janssen"]]]
+                ]]
+              ]
+            }
+            """;
+
+        var doc = com.wowool.sdk.internal.json.WowoolJsonParser.parse("Jan Janssen woont in Amsterdam.", mockJson);
+        assertEquals("dutch", doc.language());
+        assertEquals(1, doc.sentenceCount());
+        assertEquals(1, doc.entityCount());
+        assertEquals(2, doc.tokenCount());
+
+        EntitySpan p = doc.entities().getFirst();
+        assertEquals("Person", p.uri());
+        assertEquals("Jan Janssen", p.canonical());
+        assertEquals(Optional.of("male"), p.firstAttribute("gender"));
+        assertEquals(List.of("male"), p.getListAttribute("gender"));
     }
 
     @Test

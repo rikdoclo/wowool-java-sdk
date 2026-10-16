@@ -102,4 +102,30 @@ public record WowoolDocument(
     public int tokenCount() {
         return tokens.size();
     }
+
+    /**
+     * Returns all entities whose span is completely contained within the given character offset range.
+     *
+     * @param beginOffset Start character index (inclusive)
+     * @param endOffset End character index (inclusive)
+     * @return Immutable list of matching entities
+     */
+    public List<EntitySpan> entitiesBetween(int beginOffset, int endOffset) {
+        return entities.stream()
+            .filter(e -> e.beginOffset() >= beginOffset && e.endOffset() <= endOffset)
+            .toList();
+    }
+
+    /**
+     * Returns all tokens completely covered by the given entity span.
+     *
+     * @param entity Target entity span
+     * @return Immutable list of tokens covering this entity
+     */
+    public List<TokenSpan> tokensFor(EntitySpan entity) {
+        if (entity == null) return Collections.emptyList();
+        return tokens.stream()
+            .filter(t -> t.beginOffset() >= entity.beginOffset() && t.endOffset() <= entity.endOffset())
+            .toList();
+    }
 }

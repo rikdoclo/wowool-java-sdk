@@ -135,12 +135,20 @@ public final class WowoolPaths {
         candidates.add(Path.of("/usr/local/share/wowool"));
 
         for (Path c : candidates) {
-            if (Files.isDirectory(c) && Files.isDirectory(c.resolve("lxware/wowool"))) {
-                return c.toAbsolutePath().normalize();
+            if (Files.isDirectory(c)) {
+                if (Files.isDirectory(c.resolve("lxware/wowool"))) {
+                    return c.toAbsolutePath().normalize();
+                }
+                // Check if directory itself contains .language files (flat model mount)
+                try (var stream = Files.list(c)) {
+                    if (stream.anyMatch(p -> p.getFileName().toString().endsWith(".language"))) {
+                        return c.toAbsolutePath().normalize();
+                    }
+                } catch (IOException ignored) {}
             }
         }
 
-        throw new WowoolException("Wowool root directory containing 'lxware/wowool' language models not found. Please set 'wowool.root' property or 'WOWOOL_ROOT' environment variable.");
+        throw new WowoolException("Wowool root directory containing language models not found. Please set 'wowool.root' property or 'WOWOOL_ROOT' environment variable.");
     }
 
     /**
@@ -153,6 +161,8 @@ public final class WowoolPaths {
             venvRoots.add(Path.of(venvEnv));
         }
         venvRoots.add(Path.of(".venv"));
+        venvRoots.add(Path.of("../.venv"));
+        venvRoots.add(Path.of("../../.venv"));
 
         for (Path venv : venvRoots) {
             Path libDir = venv.resolve("lib");
@@ -171,50 +181,77 @@ public final class WowoolPaths {
 
     /**
      * Resolves the .language file for the given language.
+     * Supports both python 'lxware/wowool' layouts and flat directory mounts.
      */
     public static Optional<Path> resolveLanguageFile(Path wowoolRoot, String language) {
-        Path lxware = wowoolRoot.resolve("lxware/wowool");
-        if (!Files.isDirectory(lxware)) return Optional.empty();
-
         // 1. Direct path if specified
         Path direct = Path.of(language);
         if (Files.exists(direct)) return Optional.of(direct.toAbsolutePath().normalize());
 
-        // 2. Direct name under lxware
-        Path candidate1 = lxware.resolve(language + ".language");
-        if (Files.exists(candidate1)) return Optional.of(candidate1);
+        List<Path> searchDirs = new ArrayList<>();
+        Path lxware = wowoolRoot.resolve("lxware/wowool");
+        if (Files.isDirectory(lxware)) searchDirs.add(lxware);
+        if (Files.isDirectory(wowoolRoot)) searchDirs.add(wowoolRoot);
+        Path modelsSub = wowoolRoot.resolve("models");
+        if (Files.isDirectory(modelsSub)) searchDirs.add(modelsSub);
 
-        // 3. Versioned pattern, e.g. dutch@3.2.7.language
-        try (var stream = Files.list(lxware)) {
-            return stream
-                .filter(p -> p.getFileName().toString().startsWith(language + "@") && p.getFileName().toString().endsWith(".language"))
-                .findFirst();
-        } catch (IOException e) {
-            return Optional.empty();
+        for (Path dir : searchDirs) {
+            // Direct name e.g. dutch.language
+            Path candidate1 = dir.resolve(language + ".language");
+            if (Files.exists(candidate1)) return Optional.of(candidate1.toAbsolutePath().normalize());
+
+            // Versioned pattern, e.g. dutch@3.2.7.language
+            try (var stream = Files.list(dir)) {
+                Optional<Path> found = stream
+                    .filter(p -> p.getFileName().toString().startsWith(language + "@") && p.getFileName().toString().endsWith(".language"))
+                    .findFirst();
+                if (found.isPresent()) return found.map(p -> p.toAbsolutePath().normalize());
+            } catch (IOException ignored) {}
         }
+
+        return Optional.empty();
     }
 
     /**
      * Resolves a binary domain file (.dom) for the given language and domain name.
+     * Supports standard names, versioned names (@version), and flat layouts.
      */
     public static Optional<Path> resolveDomainFile(Path wowoolRoot, String language, String domain) {
-        Path lxware = wowoolRoot.resolve("lxware/wowool");
-        if (!Files.isDirectory(lxware)) return Optional.empty();
-
         // 1. Direct file
         Path direct = Path.of(domain);
         if (Files.exists(direct)) return Optional.of(direct.toAbsolutePath().normalize());
 
+        List<Path> searchDirs = new ArrayList<>();
+        Path lxware = wowoolRoot.resolve("lxware/wowool");
+        if (Files.isDirectory(lxware)) searchDirs.add(lxware);
+        if (Files.isDirectory(wowoolRoot)) searchDirs.add(wowoolRoot);
+        Path modelsSub = wowoolRoot.resolve("models");
+        if (Files.isDirectory(modelsSub)) searchDirs.add(modelsSub);
+
         String prefix = language + "-" + domain;
-        try (var stream = Files.list(lxware)) {
-            return stream
-                .filter(p -> {
-                    String name = p.getFileName().toString();
-                    return (name.startsWith(prefix + "@") || name.startsWith(domain + "@")) && name.endsWith(".dom");
-                })
-                .findFirst();
-        } catch (IOException e) {
-            return Optional.empty();
+
+        for (Path dir : searchDirs) {
+            // Exact filenames: entity.dom or dutch-entity.dom
+            Path exactDomain = dir.resolve(domain + ".dom");
+            if (Files.exists(exactDomain)) return Optional.of(exactDomain.toAbsolutePath().normalize());
+
+            Path exactPrefix = dir.resolve(prefix + ".dom");
+            if (Files.exists(exactPrefix)) return Optional.of(exactPrefix.toAbsolutePath().normalize());
+
+            // Pattern with @version or prefix: e.g. dutch-entity@3.2.7.dom or entity@3.2.7.dom
+            try (var stream = Files.list(dir)) {
+                Optional<Path> found = stream
+                    .filter(p -> {
+                        String name = p.getFileName().toString();
+                        return (name.startsWith(prefix + "@") || name.startsWith(domain + "@")
+                                || name.equals(prefix + ".dom") || name.equals(domain + ".dom"))
+                            && name.endsWith(".dom");
+                    })
+                    .findFirst();
+                if (found.isPresent()) return found.map(p -> p.toAbsolutePath().normalize());
+            } catch (IOException ignored) {}
         }
+
+        return Optional.empty();
     }
 }

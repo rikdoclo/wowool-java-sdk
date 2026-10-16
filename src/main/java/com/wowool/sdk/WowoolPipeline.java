@@ -67,37 +67,50 @@ public final class WowoolPipeline implements AutoCloseable {
         String analyzerOpts = "{\"language\":\"" + languagePath.toAbsolutePath() + "\"}";
         MemorySegment analyzerPtr = WowoolNative.createAnalyzer(engine.nativePointer(), analyzerOpts, arena, exInfo);
 
-        // 2. Load Domains
+        // 2. Load Domains with exception safety
         List<MemorySegment> domainPtrs = new ArrayList<>();
         List<String> resolvedDomainNames = new ArrayList<>();
 
-        if (domainNames != null) {
-            String langName = extractLanguageName(languagePath);
-            for (String domain : domainNames) {
-                if (domain == null || domain.isBlank()) continue;
+        try {
+            if (domainNames != null) {
+                String langName = extractLanguageName(languagePath);
+                for (String domain : domainNames) {
+                    if (domain == null || domain.isBlank()) continue;
 
-                Path domFile = WowoolPaths.resolveDomainFile(engine.config().wowoolRoot(), langName, domain)
-                    .orElseThrow(() -> new WowoolException("Domain file for '" + domain + "' (language: " + langName + ") not found."));
+                    Path domFile = WowoolPaths.resolveDomainFile(engine.config().wowoolRoot(), langName, domain)
+                        .orElseThrow(() -> new WowoolException("Domain file for '" + domain + "' (language: " + langName + ") not found."));
 
-                MemorySegment domainPtr = WowoolNative.loadDomain(
-                    engine.nativePointer(),
-                    domFile.toAbsolutePath().toString(),
-                    "{}",
-                    arena,
-                    exInfo
-                );
-                domainPtrs.add(domainPtr);
-                resolvedDomainNames.add(domain);
+                    MemorySegment domainPtr = WowoolNative.loadDomain(
+                        engine.nativePointer(),
+                        domFile.toAbsolutePath().toString(),
+                        "{}",
+                        arena,
+                        exInfo
+                    );
+                    domainPtrs.add(domainPtr);
+                    resolvedDomainNames.add(domain);
+                }
             }
-        }
 
-        return new WowoolPipeline(
-            engine,
-            languagePath,
-            analyzerPtr,
-            Collections.unmodifiableList(domainPtrs),
-            Collections.unmodifiableList(resolvedDomainNames)
-        );
+            return new WowoolPipeline(
+                engine,
+                languagePath,
+                analyzerPtr,
+                Collections.unmodifiableList(domainPtrs),
+                Collections.unmodifiableList(resolvedDomainNames)
+            );
+        } catch (Throwable t) {
+            // Clean up native resources on failure to avoid off-heap memory leaks
+            for (MemorySegment dPtr : domainPtrs) {
+                try {
+                    WowoolNative.decRef(dPtr, exInfo);
+                } catch (Throwable ignored) {}
+            }
+            try {
+                WowoolNative.decRef(analyzerPtr, exInfo);
+            } catch (Throwable ignored) {}
+            throw (t instanceof RuntimeException re) ? re : new WowoolException("Failed to initialize pipeline", t);
+        }
     }
 
     /**

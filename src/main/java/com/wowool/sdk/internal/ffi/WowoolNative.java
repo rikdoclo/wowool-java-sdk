@@ -186,7 +186,7 @@ public final class WowoolNative {
     public static MemorySegment createAnalyzer(MemorySegment enginePtr, String optionsJson, Arena arena, MemorySegment exInfo) {
         try {
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
-            long len = optionsJson.getBytes().length;
+            long len = optSeg.byteSize() - 1;
             MemorySegment ptr = (MemorySegment) getAnalyzerHandle.invokeExact(enginePtr, optSeg, len, exInfo);
             checkException("tir_api_get_analyzer", exInfo);
             return ptr;
@@ -199,7 +199,7 @@ public final class WowoolNative {
         try {
             MemorySegment pathSeg = arena.allocateFrom(domainPath);
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
-            long len = optionsJson.getBytes().length;
+            long len = optSeg.byteSize() - 1;
             MemorySegment ptr = (MemorySegment) loadDomainHandle.invokeExact(enginePtr, pathSeg, optSeg, len, exInfo);
             checkException("tir_api_load_domain", exInfo);
             return ptr;
@@ -211,9 +211,9 @@ public final class WowoolNative {
     public static MemorySegment analyzeDocument(MemorySegment analyzerPtr, String text, String optionsJson, Arena arena, MemorySegment exInfo) {
         try {
             MemorySegment textSeg = arena.allocateFrom(text);
-            long textLen = text.getBytes().length;
+            long textLen = textSeg.byteSize() - 1;
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
-            long optLen = optionsJson.getBytes().length;
+            long optLen = optSeg.byteSize() - 1;
             MemorySegment ptr = (MemorySegment) analyzeDocumentHandle.invokeExact(analyzerPtr, textSeg, textLen, optSeg, optLen, exInfo);
             checkException("tir_api_analyze_document", exInfo);
             return ptr;
@@ -247,7 +247,7 @@ public final class WowoolNative {
     public static MemorySegment createLid(MemorySegment enginePtr, String optionsJson, Arena arena, MemorySegment exInfo) {
         try {
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
-            long len = optionsJson.getBytes().length;
+            long len = optSeg.byteSize() - 1;
             MemorySegment ptr = (MemorySegment) getLidHandle.invokeExact(enginePtr, optSeg, len, exInfo);
             checkException("tir_api_get_lid_engine", exInfo);
             return ptr;
@@ -259,7 +259,7 @@ public final class WowoolNative {
     public static String identifyLanguage(MemorySegment lidPtr, String text, Arena arena, MemorySegment exInfo) {
         try {
             MemorySegment textSeg = arena.allocateFrom(text);
-            long textLen = text.getBytes().length;
+            long textLen = textSeg.byteSize() - 1;
             MemorySegment buf = arena.allocate(100);
             long bytes = (long) lidIdentHandle.invokeExact(lidPtr, textSeg, textLen, buf, 100L, exInfo);
             checkException("tir_api_language_identification", exInfo);
@@ -274,13 +274,13 @@ public final class WowoolNative {
     public static String identifyLanguageSectionJson(MemorySegment lidPtr, String text, Arena arena, MemorySegment exInfo) {
         try {
             MemorySegment textSeg = arena.allocateFrom(text);
-            long textLen = text.getBytes().length;
+            long textLen = textSeg.byteSize() - 1;
             MemorySegment secResPtr = (MemorySegment) lidIdentSectionHandle.invokeExact(lidPtr, textSeg, textLen, exInfo);
             checkException("tir_api_language_identification_section", exInfo);
 
             MemorySegment jsonPtr = (MemorySegment) lidIdentSectionJsonHandle.invokeExact(secResPtr, exInfo);
             checkException("tir_api_language_identification_section_json", exInfo);
-            String json = jsonPtr.reinterpret(1024 * 1024).getString(0);
+            String json = (jsonPtr == null || jsonPtr.address() == 0) ? "{}" : jsonPtr.reinterpret(Long.MAX_VALUE).getString(0);
             decRef(secResPtr, exInfo);
             return json;
         } catch (Throwable t) {
@@ -291,13 +291,13 @@ public final class WowoolNative {
     public static String compileDomain(String optionsJson, Arena arena, MemorySegment exInfo) {
         try {
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
-            long len = optionsJson.getBytes().length;
+            long len = optSeg.byteSize() - 1;
             MemorySegment resPtr = (MemorySegment) compileDomainHandle.invokeExact(optSeg, len, exInfo);
             checkException("tir_api_compile_domain", exInfo);
             if (resPtr == null || resPtr.address() == 0) {
                 return "{}";
             }
-            return resPtr.reinterpret(1024 * 1024).getString(0);
+            return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
         } catch (Throwable t) {
             throw rethrow(t);
         }

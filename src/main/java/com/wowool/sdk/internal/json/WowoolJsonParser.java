@@ -33,7 +33,6 @@ import java.util.*;
 public final class WowoolJsonParser {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     private WowoolJsonParser() {}
 
@@ -77,7 +76,7 @@ public final class WowoolJsonParser {
 
                             Map<String, Object> attributes = Collections.emptyMap();
                             if (ann.size() > 4 && ann.get(4).isObject()) {
-                                attributes = MAPPER.convertValue(ann.get(4), MAP_TYPE);
+                                attributes = parseAttributes(ann.get(4));
                             }
 
                             String literal = slice(text, begin, end);
@@ -128,5 +127,36 @@ public final class WowoolJsonParser {
         int safeBegin = Math.max(0, Math.min(begin, text.length()));
         int safeEnd = Math.max(safeBegin, Math.min(end, text.length()));
         return text.substring(safeBegin, safeEnd);
+    }
+
+    private static Map<String, Object> parseAttributes(JsonNode node) {
+        if (node == null || !node.isObject() || node.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, Object> map = new LinkedHashMap<>();
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            map.put(entry.getKey(), convertNode(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(map);
+    }
+
+    private static Object convertNode(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (node.isTextual()) return node.asText();
+        if (node.isNumber()) return node.numberValue();
+        if (node.isBoolean()) return node.asBoolean();
+        if (node.isArray()) {
+            List<Object> list = new ArrayList<>(node.size());
+            for (JsonNode item : node) {
+                list.add(convertNode(item));
+            }
+            return Collections.unmodifiableList(list);
+        }
+        if (node.isObject()) {
+            return parseAttributes(node);
+        }
+        return node.asText();
     }
 }
