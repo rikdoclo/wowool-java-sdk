@@ -160,4 +160,36 @@ public class WowoolSdkTest {
             System.out.println("Custom compiled rule successfully detected: " + match.literal());
         }
     }
+
+    @Test
+    @DisplayName("Test concurrent multi-threaded execution with WowoolPipelinePool")
+    void testConcurrentPipelinePool() throws Exception {
+        try (WowoolPipelinePool pool = engine.pool("dutch", 3, "entity")) {
+            assertEquals(3, pool.capacity());
+            assertEquals(3, pool.availableCount());
+
+            int taskCount = 10;
+            java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(4);
+            java.util.List<java.util.concurrent.Future<WowoolDocument>> futures = new java.util.ArrayList<>();
+
+            for (int i = 0; i < taskCount; i++) {
+                final int idx = i;
+                futures.add(executor.submit(() -> {
+                    String sample = "Jan Janssen bezoekt Amsterdam voor taak " + idx + ".";
+                    return pool.analyze(sample);
+                }));
+            }
+
+            for (var f : futures) {
+                WowoolDocument doc = f.get(5, java.util.concurrent.TimeUnit.SECONDS);
+                assertNotNull(doc);
+                assertTrue(doc.hasEntity("Person"));
+                assertTrue(doc.hasEntity("City"));
+                assertEquals("Jan Janssen", doc.findFirst("Person").get().canonical());
+            }
+
+            executor.shutdown();
+            assertTrue(executor.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
 }

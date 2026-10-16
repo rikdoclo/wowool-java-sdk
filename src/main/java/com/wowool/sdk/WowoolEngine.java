@@ -99,6 +99,31 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
+     * Creates a pooled pipeline instance for high-throughput multi-threaded concurrent analysis.
+     *
+     * @param language Language name (e.g., "dutch", "english")
+     * @param capacity Number of pipelines to maintain in pool
+     * @param domains Optional domain names or .dom file paths
+     * @return A thread-safe {@link WowoolPipelinePool}
+     */
+    public WowoolPipelinePool pool(String language, int capacity, String... domains) {
+        return createPool(language, capacity, Arrays.asList(domains));
+    }
+
+    /**
+     * Creates a pooled pipeline instance for high-throughput multi-threaded concurrent analysis.
+     *
+     * @param language Language name (e.g., "dutch", "english")
+     * @param capacity Number of pipelines to maintain in pool
+     * @param domains List of domains to cascade
+     * @return A thread-safe {@link WowoolPipelinePool}
+     */
+    public WowoolPipelinePool createPool(String language, int capacity, List<String> domains) {
+        ensureOpen();
+        return new WowoolPipelinePool(this, language, capacity, domains);
+    }
+
+    /**
      * Creates a new {@link LanguageIdentifier} for sub-millisecond language identification.
      */
     public LanguageIdentifier languageIdentifier() {
