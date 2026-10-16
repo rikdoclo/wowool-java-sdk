@@ -209,4 +209,39 @@ public class WowoolSdkTest {
             assertTrue(domainInfo.length() > 5);
         }
     }
+
+    @Test
+    @DisplayName("Test UTF-8 multi-byte characters and offset alignment (regression for middle dot, accents, currency)")
+    void testUtf8MultiByteCharacterOffsets() {
+        try (WowoolPipeline pipeline = engine.pipeline("dutch", "entity")) {
+            // Text containing multi-byte UTF-8 characters:
+            // '·' (2 bytes: U+00B7), '€' (3 bytes: U+20AC), 'ë' (2 bytes: U+00EB)
+            String text = "# 53429 · Kennisgeving opstart voor Patrick Van Geyte met budget € 500 te Brussel.";
+            WowoolDocument doc = pipeline.analyze(text);
+
+            assertNotNull(doc);
+            assertTrue(doc.hasEntity("Person"), "Person entity should be found");
+            assertTrue(doc.hasEntity("City"), "City entity should be found");
+
+            EntitySpan person = doc.findFirst("Person").orElseThrow();
+            assertEquals("Patrick Van Geyte", person.literal());
+            assertEquals("Patrick Van Geyte", text.substring(person.beginOffset(), person.endOffset()));
+
+            EntitySpan city = doc.findFirst("City").orElseThrow();
+            assertEquals("Brussel", city.literal());
+            assertEquals("Brussel", text.substring(city.beginOffset(), city.endOffset()));
+
+            // Verify all entities match text.substring(begin, end) exactly
+            for (EntitySpan e : doc.entities()) {
+                assertEquals(e.literal(), text.substring(e.beginOffset(), e.endOffset()),
+                    "Entity literal must match text slice at offsets: " + e.literal());
+            }
+
+            // Verify all sentence spans match text.substring(begin, end)
+            for (var s : doc.sentences()) {
+                assertEquals(s.text(), text.substring(s.beginOffset(), s.endOffset()),
+                    "Sentence text must match text slice at offsets");
+            }
+        }
+    }
 }

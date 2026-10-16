@@ -46,12 +46,17 @@ public final class WowoolJsonParser {
         List<EntitySpan> allEntities = new ArrayList<>();
         List<TokenSpan> allTokens = new ArrayList<>();
 
+        int textCharLen = text != null ? text.length() : 0;
+        int[] byteToChar = buildByteToCharMap(text);
+
         if (sentencesNode.isArray()) {
             for (JsonNode sentNode : sentencesNode) {
                 if (!sentNode.isArray() || sentNode.size() < 4) continue;
 
-                int sentBegin = sentNode.get(1).asInt();
-                int sentEnd = sentNode.get(2).asInt();
+                int sentByteBegin = sentNode.get(1).asInt();
+                int sentByteEnd = sentNode.get(2).asInt();
+                int sentBegin = toCharOffset(sentByteBegin, byteToChar, textCharLen);
+                int sentEnd = toCharOffset(sentByteEnd, byteToChar, textCharLen);
                 String sentText = slice(text, sentBegin, sentEnd);
 
                 List<TokenSpan> sentenceTokens = new ArrayList<>();
@@ -65,8 +70,10 @@ public final class WowoolJsonParser {
 
                         if (annType == 2 && ann.size() >= 4) {
                             // Concept / Entity Annotation
-                            int begin = ann.get(1).asInt();
-                            int end = ann.get(2).asInt();
+                            int byteBegin = ann.get(1).asInt();
+                            int byteEnd = ann.get(2).asInt();
+                            int begin = toCharOffset(byteBegin, byteToChar, textCharLen);
+                            int end = toCharOffset(byteEnd, byteToChar, textCharLen);
                             String uri = ann.get(3).asText();
 
                             // "Sentence" concept represents the structural sentence itself; skip as an entity
@@ -85,8 +92,10 @@ public final class WowoolJsonParser {
                             allEntities.add(entity);
                         } else if (annType == 3 && ann.size() >= 4) {
                             // Token Annotation
-                            int begin = ann.get(1).asInt();
-                            int end = ann.get(2).asInt();
+                            int byteBegin = ann.get(1).asInt();
+                            int byteEnd = ann.get(2).asInt();
+                            int begin = toCharOffset(byteBegin, byteToChar, textCharLen);
+                            int end = toCharOffset(byteEnd, byteToChar, textCharLen);
                             String literal = ann.get(3).asText();
 
                             List<String> flags = new ArrayList<>();
@@ -120,6 +129,75 @@ public final class WowoolJsonParser {
         }
 
         return new WowoolDocument(text, language, sentences, allEntities, allTokens, rawJson);
+    }
+
+    /**
+     * Builds a fast lookup table mapping UTF-8 byte offsets to Java UTF-16 char offsets.
+     * Returns null if the text is pure ASCII (fast-path where byteOffset == charOffset).
+     */
+    static int[] buildByteToCharMap(String text) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        int charLen = text.length();
+        boolean hasNonAscii = false;
+        for (int i = 0; i < charLen; i++) {
+            if (text.charAt(i) >= 0x80) {
+                hasNonAscii = true;
+                break;
+            }
+        }
+        if (!hasNonAscii) {
+            return null;
+        }
+
+        int totalBytes = 0;
+        for (int i = 0; i < charLen; i++) {
+            char c = text.charAt(i);
+            if (c <= 0x7F) {
+                totalBytes += 1;
+            } else if (c <= 0x7FF) {
+                totalBytes += 2;
+            } else if (Character.isHighSurrogate(c) && i + 1 < charLen && Character.isLowSurrogate(text.charAt(i + 1))) {
+                totalBytes += 4;
+                i++;
+            } else {
+                totalBytes += 3;
+            }
+        }
+
+        int[] byteToChar = new int[totalBytes + 1];
+        int byteIdx = 0;
+        for (int i = 0; i < charLen; i++) {
+            char c = text.charAt(i);
+            if (c <= 0x7F) {
+                byteToChar[byteIdx++] = i;
+            } else if (c <= 0x7FF) {
+                byteToChar[byteIdx++] = i;
+                byteToChar[byteIdx++] = i;
+            } else if (Character.isHighSurrogate(c) && i + 1 < charLen && Character.isLowSurrogate(text.charAt(i + 1))) {
+                byteToChar[byteIdx++] = i;
+                byteToChar[byteIdx++] = i;
+                byteToChar[byteIdx++] = i;
+                byteToChar[byteIdx++] = i;
+                i++;
+            } else {
+                byteToChar[byteIdx++] = i;
+                byteToChar[byteIdx++] = i;
+                byteToChar[byteIdx++] = i;
+            }
+        }
+        byteToChar[byteIdx] = charLen;
+        return byteToChar;
+    }
+
+    private static int toCharOffset(int byteOffset, int[] byteToChar, int charLen) {
+        if (byteToChar == null) {
+            return Math.max(0, Math.min(byteOffset, charLen));
+        }
+        if (byteOffset <= 0) return 0;
+        if (byteOffset >= byteToChar.length) return charLen;
+        return byteToChar[byteOffset];
     }
 
     private static String slice(String text, int begin, int end) {
