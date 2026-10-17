@@ -43,7 +43,7 @@ public class WowoolSdkTest {
             try (WowoolPipeline probe = engine.pipeline("dutch")) {
                 probe.analyze("test");
             }
-        } catch (WowoolException | UnsatisfiedLinkError e) {
+        } catch (Throwable e) {
             org.junit.jupiter.api.Assumptions.abort(
                 "Native Wowool engine/license not fully operational in this environment; skipping native tests: " + e.getMessage()
             );

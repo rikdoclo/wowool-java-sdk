@@ -169,6 +169,11 @@ class ModelAndConfigTest {
         Path expectedLib = home.resolve(".wowool/lib");
         Path expectedModels = home.resolve(".wowool/models");
 
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+            java.nio.file.Files.isDirectory(expectedLib) && java.nio.file.Files.isDirectory(expectedModels),
+            "Skipping ~/.wowool discovery test when ~/.wowool is not installed on this machine"
+        );
+
         Path dylibDir = com.wowool.sdk.internal.ffi.WowoolPaths.resolveDylibDir();
         Path wowoolRoot = com.wowool.sdk.internal.ffi.WowoolPaths.resolveWowoolRoot();
 

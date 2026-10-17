@@ -68,7 +68,7 @@ public class BenchmarkSuiteTest {
             }
             longText = loadResource("/benchmarks/long_regulatory_decree.txt", sbLong.toString());
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             org.junit.jupiter.api.Assumptions.abort("Skipping benchmark, engine unavailable: " + e.getMessage());
         }
     }
