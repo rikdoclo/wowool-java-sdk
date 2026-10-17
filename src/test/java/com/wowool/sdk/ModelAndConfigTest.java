@@ -16,6 +16,7 @@
 
 package com.wowool.sdk;
 
+import com.wowool.sdk.model.Annotation;
 import com.wowool.sdk.model.EntitySpan;
 import com.wowool.sdk.model.SentenceSpan;
 import com.wowool.sdk.model.TokenSpan;
@@ -179,5 +180,67 @@ class ModelAndConfigTest {
 
         assertEquals(expectedLib, dylibDir);
         assertEquals(expectedModels, wowoolRoot);
+    }
+
+    @Test
+    @DisplayName("Test Annotation sealed hierarchy, pattern matching, and sentence-level annotations")
+    void testAnnotationHierarchyAndPatternMatching() {
+        TokenSpan t1 = new TokenSpan("Satya", "satya", "Prop", "satya", 0, 5, List.of("init-cap"));
+        TokenSpan t2 = new TokenSpan("Nadella", "nadella", "Prop", "nadella", 6, 13, List.of("init-cap"));
+        EntitySpan e1 = new EntitySpan("Person", "Satya Nadella", 0, 13, Map.of("canonical", "Satya Nadella"));
+
+        SentenceSpan s1 = new SentenceSpan(0, 13, "Satya Nadella", List.of(t1, t2), List.of(e1));
+
+        // Test Annotation interface contracts
+        Annotation aToken = t1;
+        Annotation aEntity = e1;
+        Annotation aSentence = s1;
+
+        assertTrue(aToken.isToken());
+        assertFalse(aToken.isEntity());
+        assertFalse(aToken.isSentence());
+        assertEquals("Satya", t1.text());
+
+        assertTrue(aEntity.isEntity());
+        assertFalse(aEntity.isToken());
+        assertEquals("Satya Nadella", e1.text());
+
+        assertTrue(aSentence.isSentence());
+        assertEquals(13, aSentence.length());
+
+        // Spatial checks
+        assertTrue(aSentence.contains(aToken));
+        assertTrue(aSentence.contains(aEntity));
+        assertTrue(aEntity.contains(aToken));
+        assertTrue(aToken.overlaps(aEntity));
+        assertTrue(aToken.containsOffset(2));
+        assertFalse(aToken.containsOffset(5));
+
+        // Sentence-level queries
+        assertEquals(3, s1.annotations().size());
+        assertTrue(s1.hasEntity("Person"));
+        assertFalse(s1.hasEntity("City"));
+        assertEquals(1, s1.entities("Person").size());
+        assertEquals(2, s1.tokenCount());
+        assertEquals(1, s1.entityCount());
+
+        // Pattern matching in Java 22+
+        int tokenCount = 0;
+        int entityCount = 0;
+        for (Annotation ann : s1.annotations()) {
+            switch (ann) {
+                case TokenSpan t -> tokenCount++;
+                case EntitySpan e -> entityCount++;
+                case SentenceSpan s -> {}
+            }
+        }
+        assertEquals(2, tokenCount);
+        assertEquals(1, entityCount);
+
+        // Document-level annotations
+        WowoolDocument doc = new WowoolDocument("Satya Nadella", "english", List.of(s1), List.of(e1), List.of(t1, t2), "{}");
+        assertEquals(3, doc.annotations().size());
+        assertEquals(1, doc.annotationsBetween(0, 5).size()); // only t1
+        assertEquals(3, doc.annotationsBetween(0, 13).size()); // t1, t2, e1
     }
 }

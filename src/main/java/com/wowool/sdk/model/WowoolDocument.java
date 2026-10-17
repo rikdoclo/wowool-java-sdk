@@ -16,7 +16,9 @@
 
 package com.wowool.sdk.model;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -126,6 +128,34 @@ public record WowoolDocument(
         if (entity == null) return Collections.emptyList();
         return tokens.stream()
             .filter(t -> t.beginOffset() >= entity.beginOffset() && t.endOffset() <= entity.endOffset())
+            .toList();
+    }
+
+    /**
+     * Returns an unmodifiable list of all annotations (both tokens and entities)
+     * across the entire document, sorted in ascending document order by start offset.
+     *
+     * @return All annotations in document order
+     */
+    public List<Annotation> annotations() {
+        List<Annotation> all = new ArrayList<>(tokens.size() + entities.size());
+        all.addAll(tokens);
+        all.addAll(entities);
+        all.sort(Comparator.comparingInt(Annotation::beginOffset)
+            .thenComparingInt(Annotation::endOffset));
+        return Collections.unmodifiableList(all);
+    }
+
+    /**
+     * Returns all annotations whose span is completely contained within the given character offset range.
+     *
+     * @param beginOffset Start character index (inclusive)
+     * @param endOffset End character index (inclusive)
+     * @return Immutable list of matching annotations
+     */
+    public List<Annotation> annotationsBetween(int beginOffset, int endOffset) {
+        return annotations().stream()
+            .filter(a -> a.beginOffset() >= beginOffset && a.endOffset() <= endOffset)
             .toList();
     }
 }

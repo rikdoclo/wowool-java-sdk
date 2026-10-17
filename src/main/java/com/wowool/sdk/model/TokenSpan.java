@@ -38,13 +38,22 @@ public record TokenSpan(
     int beginOffset,
     int endOffset,
     List<String> flags
-) {
+) implements Annotation {
     public TokenSpan {
         if (flags == null) {
             flags = Collections.emptyList();
         } else {
             flags = Collections.unmodifiableList(flags);
         }
+    }
+
+    /**
+     * Surface text of this token (alias for {@link #literal()}).
+     *
+     * @return Raw text of this token
+     */
+    public String text() {
+        return literal;
     }
 
     /**

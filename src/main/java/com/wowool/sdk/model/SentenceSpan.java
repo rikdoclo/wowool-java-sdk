@@ -16,7 +16,9 @@
 
 package com.wowool.sdk.model;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -34,9 +36,61 @@ public record SentenceSpan(
     String text,
     List<TokenSpan> tokens,
     List<EntitySpan> entities
-) {
+) implements Annotation {
     public SentenceSpan {
         tokens = (tokens == null) ? Collections.emptyList() : Collections.unmodifiableList(tokens);
         entities = (entities == null) ? Collections.emptyList() : Collections.unmodifiableList(entities);
+    }
+
+    /**
+     * Returns an unmodifiable list of all annotations (both tokens and entities)
+     * within this sentence, sorted by character offset.
+     *
+     * @return All annotations within this sentence in document order
+     */
+    public List<Annotation> annotations() {
+        List<Annotation> all = new ArrayList<>(tokens.size() + entities.size());
+        all.addAll(tokens);
+        all.addAll(entities);
+        all.sort(Comparator.comparingInt(Annotation::beginOffset)
+            .thenComparingInt(Annotation::endOffset));
+        return Collections.unmodifiableList(all);
+    }
+
+    /**
+     * Filters all entities in this sentence matching a specific concept URI (case-insensitive).
+     *
+     * @param uri Concept URI (e.g., "Person", "City")
+     * @return Matching entities within this sentence
+     */
+    public List<EntitySpan> entities(String uri) {
+        if (uri == null || uri.isBlank()) return Collections.emptyList();
+        return entities.stream()
+            .filter(e -> e.is(uri))
+            .toList();
+    }
+
+    /**
+     * Checks if this sentence contains at least one entity matching the specified concept URI.
+     *
+     * @param uri Concept URI
+     * @return true if present, false otherwise
+     */
+    public boolean hasEntity(String uri) {
+        return entities.stream().anyMatch(e -> e.is(uri));
+    }
+
+    /**
+     * Number of tokens within this sentence.
+     */
+    public int tokenCount() {
+        return tokens.size();
+    }
+
+    /**
+     * Number of entities within this sentence.
+     */
+    public int entityCount() {
+        return entities.size();
     }
 }

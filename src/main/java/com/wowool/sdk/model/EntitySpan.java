@@ -36,13 +36,22 @@ public record EntitySpan(
     int beginOffset,
     int endOffset,
     Map<String, Object> attributes
-) {
+) implements Annotation {
     public EntitySpan {
         if (attributes == null) {
             attributes = Collections.emptyMap();
         } else {
             attributes = Collections.unmodifiableMap(attributes);
         }
+    }
+
+    /**
+     * Surface text of this entity (alias for {@link #literal()}).
+     *
+     * @return Raw text of this entity
+     */
+    public String text() {
+        return literal;
     }
 
     /**
