@@ -1,6 +1,6 @@
 # Wowool Java SDK
 
-[![CI Build](https://github.com/rikdoclo/wowool-java-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/rikdoclo/wowool-java-sdk/actions/workflows/ci.yml)
+[![CI Build](https://github.com/rikdoclo/wowool-java-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rikdoclo/wowool-java-sdk/actions/workflows/ci.yml?query=branch%3Amain)
 [![Java](https://img.shields.io/badge/Java-22%2B%20(LTS%2025)-orange.svg)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Engine](https://img.shields.io/badge/Engine-Wowool%20Native%20C%2B%2B%203.3.2-green.svg)](https://wowool.com)
