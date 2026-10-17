@@ -27,6 +27,8 @@ This SDK connects directly to the underlying C++ runtime (`libwowool.3.3.2.dylib
 
 ## Architecture Overview
 
+![Wowool Java SDK Panama Architecture](docs/images/wowool-java-sdk-panama-architecture.png)
+
 ```
 ┌────────────────────────────────────────────────────────┐
 │             Public Idiomatic Java API                  │
