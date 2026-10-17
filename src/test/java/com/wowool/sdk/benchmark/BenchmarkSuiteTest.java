@@ -50,8 +50,9 @@ public class BenchmarkSuiteTest {
             engine = WowoolEngine.create();
             assertNotNull(engine, "WowoolEngine should be initialized");
 
-            // Synthetic yet realistic Dutch administrative texts
-            shortText = "Minister-president Jan Jambon bezocht vandaag de haven van Antwerpen en sprak over duurzame energietransitie.";
+            // Load realistic Dutch administrative benchmark corpora from resources
+            shortText = loadResource("/benchmarks/short_administrative_notice.txt",
+                "Minister-president Jan Jambon bezocht vandaag de haven van Antwerpen en sprak over duurzame energietransitie.");
             
             StringBuilder sbMed = new StringBuilder();
             for (int i = 0; i < 10; i++) {
@@ -59,17 +60,27 @@ public class BenchmarkSuiteTest {
                 sbMed.append("De aanvrager, mevrouw Sophie Peeters, wenst een omgevingsvergunning te bekomen voor de exploitatie van een warmtepompinstallatie conform VLAREM II regelgeving. ");
                 sbMed.append("Burgers en belanghebbenden kunnen tot uiterlijk 15 november 2026 bezwaarschriften indienen bij het schepencollege. ");
             }
-            mediumText = sbMed.toString();
+            mediumText = loadResource("/benchmarks/medium_gazette_notice.txt", sbMed.toString());
 
             StringBuilder sbLong = new StringBuilder();
             for (int i = 0; i < 5; i++) {
                 sbLong.append(mediumText).append("\n\n");
             }
-            longText = sbLong.toString();
+            longText = loadResource("/benchmarks/long_regulatory_decree.txt", sbLong.toString());
 
         } catch (Exception e) {
             org.junit.jupiter.api.Assumptions.abort("Skipping benchmark, engine unavailable: " + e.getMessage());
         }
+    }
+
+    private static String loadResource(String resourcePath, String fallback) {
+        try (var is = BenchmarkSuiteTest.class.getResourceAsStream(resourcePath)) {
+            if (is != null) {
+                return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (Exception ignored) {
+        }
+        return fallback;
     }
 
     @AfterAll
