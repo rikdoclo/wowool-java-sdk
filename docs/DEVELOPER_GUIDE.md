@@ -17,7 +17,7 @@
 3. [Core Components Deep Dive](#3-core-components-deep-dive)
    - [WowoolEngine: The Root Factory](#wowoolengine-the-root-factory)
    - [WowoolPipeline: Sequential Domain Chaining](#wowoolpipeline-sequential-domain-chaining)
-   - [WowoolDocument & Typed Records](#wowooldocument--typed-records)
+   - [WowoolDocument & Sealed Annotation Model](#wowooldocument--sealed-annotation-model)
    - [LanguageIdentifier: High-Speed Language Classification](#languageidentifier-high-speed-language-classification)
    - [DomainCompiler: Compiling Rules on the Fly](#domaincompiler-compiling-rules-on-the-fly)
 4. [Writing and Compiling Custom Wowool Domains (.wow)](#4-writing-and-compiling-custom-wowool-domains-wow)
@@ -123,27 +123,93 @@ try (WowoolPipeline pipeline = engine.pipeline("dutch", "entity", "sentiment", "
 Text Input ──► [Language Analyzer] ──► [Domain 1: entity] ──► [Domain 2: sentiment] ──► WowoolDocument
 ```
 
-### WowoolDocument & Typed Records
+### WowoolDocument & Sealed Annotation Model
 
-`WowoolDocument` provides typed query methods:
+The SDK formalizes all linguistic spans through a **sealed `Annotation` hierarchy** (`com.wowool.sdk.model.Annotation`), mirroring the theoretical annotational architecture of the Wowool C++ Blackboard:
+
+```
+                      Annotation (sealed interface)
+                       ▲         ▲            ▲
+                       │         │            │
+            TokenSpan ─┘         │            └── SentenceSpan
+                                 │
+                            EntitySpan
+```
+
+#### Universal `Annotation` Interface Contracts
+Every annotation implements:
+- `int beginOffset()`: 0-based character start index (inclusive).
+- `int endOffset()`: 0-based character end index (exclusive).
+- `int length()`: Character span length (`endOffset - beginOffset`).
+- Type checks: `isToken()`, `isEntity()`, `isSentence()`.
+- Spatial queries:
+  - `contains(Annotation other)`: Tests if another span is fully enclosed within this span.
+  - `containsOffset(int offset)`: Tests if a character index falls inside `[beginOffset, endOffset)`.
+  - `overlaps(Annotation other)`: Tests if two spans share overlapping character ranges.
+
+#### Exhaustive Java 22+ Pattern Matching
+Because `Annotation` is a `sealed interface`, you can traverse annotations with compiler-verified pattern matching:
 
 ```java
 WowoolDocument doc = pipeline.analyze(text);
 
+// Traverse all annotations across the document in offset order:
+for (Annotation ann : doc.annotations()) {
+    switch (ann) {
+        case TokenSpan token ->
+            System.out.printf("Token: %s | POS: %s | Lemma: %s%n", token.text(), token.pos(), token.lemma());
+
+        case EntitySpan entity ->
+            System.out.printf("Entity [%s]: '%s' (Canonical: %s)%n", entity.uri(), entity.text(), entity.canonical());
+
+        case SentenceSpan sentence ->
+            System.out.printf("Sentence boundary: %d-%d%n", sentence.beginOffset(), sentence.endOffset());
+    }
+}
+```
+
+#### Sentence-Level Annotation Traversal & Entity Queries
+`SentenceSpan` groups all tokens and entities that fall within that specific sentence boundary:
+
+```java
+for (SentenceSpan sentence : doc.sentences()) {
+    System.out.printf("Sentence: %s (%d tokens, %d entities)%n",
+        sentence.text(), sentence.tokenCount(), sentence.entityCount());
+
+    // Sentence-level entity queries:
+    if (sentence.hasEntity("Person")) {
+        for (EntitySpan person : sentence.entities("Person")) {
+            System.out.println("  Found person in sentence: " + person.canonical());
+        }
+    }
+
+    // Unified stream of annotations within this sentence in character order:
+    for (Annotation ann : sentence.annotations()) {
+        if (ann instanceof TokenSpan t && t.hasFlag("init-cap")) {
+            System.out.println("  Capitalized token: " + t.text());
+        }
+    }
+}
+```
+
+#### Document-Level Convenience Queries
+`WowoolDocument` provides high-level filtering:
+
+```java
 // Filter by entity URI:
 List<EntitySpan> persons = doc.entities("Person");
 
 // Find first occurrence:
 Optional<EntitySpan> org = doc.findFirst("Organization");
 
-// Inspect tokens and morphology:
-for (TokenSpan token : doc.tokens()) {
-    String word = token.literal();
-    String lemma = token.lemma();
-    String posTag = token.pos();
-}
+// Spatial queries: find all annotations within a specific character window
+List<Annotation> window = doc.annotationsBetween(10, 50);
 
-// Access raw engine JSON if custom parsing is desired:
+// Find all tokens that comprise a multi-token entity:
+EntitySpan president = doc.findFirst("Person").orElseThrow();
+List<TokenSpan> tokens = doc.tokensFor(president);
+
+// Access raw native engine JSON if custom parsing is desired:
 String rawJson = doc.rawJson();
 ```
 

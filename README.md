@@ -16,7 +16,7 @@ This SDK connects directly to the underlying C++ runtime (`libwowool.3.3.2.dylib
 
 - ⚡ **Sub-Millisecond Execution:** Direct C ABI downcalls with near zero-copy memory semantics via Panama `Arena`.
 - ☕ **100% Pure Modern Java:** No JNI boilerplate, no C++ compilers required, no manual Makefiles. Built with Java `record`s and pattern matching.
-- 🔒 **Type-Safe API:** Rich immutable data models for `WowoolDocument`, `SentenceSpan`, `EntitySpan`, and `TokenSpan`.
+- 🔒 **Type-Safe Linguistic Model:** Sealed `Annotation` hierarchy (`TokenSpan`, `EntitySpan`, `SentenceSpan`) enabling exhaustive Java 22+ pattern matching, spatial span queries, and rich attribute access.
 - 🧠 **Deterministic NLP:** Full access to Wowool's linguistic layers: deep morphology, Part-of-Speech tagging, tokenization, lemmatization, and cascading entity extraction.
 - ⚙️ **Dynamic Rule Compilation:** Compile custom Wowool domain rule files (`.wow` / `.woc`) directly to binary `.dom` domains from Java.
 - 🌐 **Instant Language Identification:** Integrated native `LanguageIdentifier` capable of detecting languages in sub-millisecond batch calls.
@@ -80,7 +80,9 @@ java --enable-native-access=ALL-UNNAMED -jar your-application.jar
 ```java
 import com.wowool.sdk.WowoolEngine;
 import com.wowool.sdk.WowoolPipeline;
+import com.wowool.sdk.model.Annotation;
 import com.wowool.sdk.model.EntitySpan;
+import com.wowool.sdk.model.TokenSpan;
 import com.wowool.sdk.model.WowoolDocument;
 
 public class Quickstart {
@@ -105,6 +107,15 @@ public class Quickstart {
                         entity.beginOffset(),
                         entity.endOffset(),
                         entity.attributes());
+                }
+
+                // Polymorphic annotation traversal with Java 22+ pattern matching
+                for (Annotation ann : doc.annotations()) {
+                    switch (ann) {
+                        case TokenSpan token   -> System.out.printf("  [Token] %s (POS: %s)%n", token.text(), token.pos());
+                        case EntitySpan entity -> System.out.printf("  [Entity: %s] %s -> %s%n", entity.uri(), entity.text(), entity.canonical());
+                        case SentenceSpan s    -> {}
+                    }
                 }
 
                 // Filter specifically for Person entities
