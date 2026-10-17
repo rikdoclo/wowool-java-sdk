@@ -29,25 +29,6 @@ This SDK connects directly to the underlying C++ runtime (`libwowool.3.3.2.dylib
 
 ![Wowool Java SDK Panama Architecture](docs/images/wowool-java-sdk-panama-architecture.png)
 
-```
-┌────────────────────────────────────────────────────────┐
-│             Public Idiomatic Java API                  │
-│   WowoolEngine, WowoolPipeline, WowoolDocument,        │
-│   EntitySpan, TokenSpan, SentenceSpan, LanguageId      │
-└──────────────────────────┬─────────────────────────────┘
-                           │ (Jackson / Type-safe Records)
-┌──────────────────────────▼─────────────────────────────┐
-│           Internal Panama FFM Binding Layer            │
-│   (java.lang.foreign: Linker, MethodHandle, Arena)     │
-│             com.wowool.sdk.internal.ffi                │
-└──────────────────────────┬─────────────────────────────┘
-                           │ (Direct C ABI downcalls: tir_api_*)
-┌──────────────────────────▼─────────────────────────────┐
-│              libwowool.3.3.2.dylib / .so               │
-│               (Native Wowool C++ Core)                 │
-└────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## Requirements
