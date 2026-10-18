@@ -15,7 +15,8 @@
  */
 
 /**
- * High-performance, native Java SDK for the Wowool Linguistic Engine using Project Panama (FFM API).
+ * High-performance, native Java SDK for the Wowool Linguistic Engine using
+ * Project Panama (FFM API).
  */
 module com.wowool.sdk {
     requires java.base;
@@ -23,4 +24,5 @@ module com.wowool.sdk {
 
     exports com.wowool.sdk;
     exports com.wowool.sdk.model;
+    exports com.wowool.sdk.rule;
 }

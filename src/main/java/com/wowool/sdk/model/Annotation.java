@@ -17,11 +17,12 @@
 package com.wowool.sdk.model;
 
 /**
- * Universal base interface for all linguistic annotations, spans, tokens, and entities
- * produced by the Wowool NLP engine.
+ * Universal base interface for all linguistic annotations, spans, tokens, and
+ * entities produced by the Wowool NLP engine.
  * <p>
- * Implemented as a sealed interface permitting {@link TokenSpan}, {@link EntitySpan},
- * and {@link SentenceSpan}, enabling exhaustive pattern matching in Java 22+.
+ * Implemented as a sealed interface permitting {@link TokenSpan},
+ * {@link EntitySpan}, and {@link SentenceSpan}, enabling exhaustive pattern
+ * matching in Java 22+.
  */
 public sealed interface Annotation permits TokenSpan, EntitySpan, SentenceSpan {
 
@@ -78,18 +79,23 @@ public sealed interface Annotation permits TokenSpan, EntitySpan, SentenceSpan {
     /**
      * Checks if this annotation completely encloses another annotation.
      *
-     * @param other Another annotation to test
+     * @param other
+     *            Another annotation to test
      * @return {@code true} if other is within this span
      */
     default boolean contains(Annotation other) {
-        if (other == null) return false;
+        if (other == null) {
+            return false;
+        }
         return beginOffset() <= other.beginOffset() && endOffset() >= other.endOffset();
     }
 
     /**
-     * Checks if a character offset falls within this annotation's range [beginOffset, endOffset).
+     * Checks if a character offset falls within this annotation's range
+     * [beginOffset, endOffset).
      *
-     * @param offset Character offset
+     * @param offset
+     *            Character offset
      * @return {@code true} if offset is within this annotation
      */
     default boolean containsOffset(int offset) {
@@ -99,11 +105,14 @@ public sealed interface Annotation permits TokenSpan, EntitySpan, SentenceSpan {
     /**
      * Checks if this annotation overlaps with another annotation.
      *
-     * @param other Another annotation to test
+     * @param other
+     *            Another annotation to test
      * @return {@code true} if there is an overlapping span
      */
     default boolean overlaps(Annotation other) {
-        if (other == null) return false;
+        if (other == null) {
+            return false;
+        }
         return beginOffset() < other.endOffset() && other.beginOffset() < endOffset();
     }
 }

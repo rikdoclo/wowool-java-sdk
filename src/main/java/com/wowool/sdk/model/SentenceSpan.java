@@ -24,19 +24,19 @@ import java.util.List;
 /**
  * Represents a segmented sentence with associated tokens and entities.
  *
- * @param beginOffset Start offset within the document
- * @param endOffset End offset within the document
- * @param text The exact sentence text
- * @param tokens Ordered list of tokens within this sentence
- * @param entities Extracted entities within this sentence
+ * @param beginOffset
+ *            Start offset within the document
+ * @param endOffset
+ *            End offset within the document
+ * @param text
+ *            The exact sentence text
+ * @param tokens
+ *            Ordered list of tokens within this sentence
+ * @param entities
+ *            Extracted entities within this sentence
  */
-public record SentenceSpan(
-    int beginOffset,
-    int endOffset,
-    String text,
-    List<TokenSpan> tokens,
-    List<EntitySpan> entities
-) implements Annotation {
+public record SentenceSpan(int beginOffset, int endOffset, String text, List<TokenSpan> tokens,
+        List<EntitySpan> entities) implements Annotation {
     public SentenceSpan {
         tokens = (tokens == null) ? Collections.emptyList() : Collections.unmodifiableList(tokens);
         entities = (entities == null) ? Collections.emptyList() : Collections.unmodifiableList(entities);
@@ -52,28 +52,31 @@ public record SentenceSpan(
         List<Annotation> all = new ArrayList<>(tokens.size() + entities.size());
         all.addAll(tokens);
         all.addAll(entities);
-        all.sort(Comparator.comparingInt(Annotation::beginOffset)
-            .thenComparingInt(Annotation::endOffset));
+        all.sort(Comparator.comparingInt(Annotation::beginOffset).thenComparingInt(Annotation::endOffset));
         return Collections.unmodifiableList(all);
     }
 
     /**
-     * Filters all entities in this sentence matching a specific concept URI (case-insensitive).
+     * Filters all entities in this sentence matching a specific concept URI
+     * (case-insensitive).
      *
-     * @param uri Concept URI (e.g., "Person", "City")
+     * @param uri
+     *            Concept URI (e.g., "Person", "City")
      * @return Matching entities within this sentence
      */
     public List<EntitySpan> entities(String uri) {
-        if (uri == null || uri.isBlank()) return Collections.emptyList();
-        return entities.stream()
-            .filter(e -> e.is(uri))
-            .toList();
+        if (uri == null || uri.isBlank()) {
+            return Collections.emptyList();
+        }
+        return entities.stream().filter(e -> e.is(uri)).toList();
     }
 
     /**
-     * Checks if this sentence contains at least one entity matching the specified concept URI.
+     * Checks if this sentence contains at least one entity matching the specified
+     * concept URI.
      *
-     * @param uri Concept URI
+     * @param uri
+     *            Concept URI
      * @return true if present, false otherwise
      */
     public boolean hasEntity(String uri) {

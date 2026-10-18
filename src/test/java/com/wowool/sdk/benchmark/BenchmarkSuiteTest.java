@@ -29,8 +29,14 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -52,13 +58,18 @@ public class BenchmarkSuiteTest {
 
             // Load realistic Dutch administrative benchmark corpora from resources
             shortText = loadResource("/benchmarks/short_administrative_notice.txt",
-                "Minister-president Jan Jambon bezocht vandaag de haven van Antwerpen en sprak over duurzame energietransitie.");
-            
+                    "Minister-president Jan Jambon bezocht vandaag de haven van Antwerpen en sprak over duurzame energietransitie.");
+
             StringBuilder sbMed = new StringBuilder();
             for (int i = 0; i < 10; i++) {
-                sbMed.append("Op ").append(10 + i).append(" oktober 2026 heeft het Departement Omgeving een openbaar onderzoek ingesteld naar perceel afdeling 2, sectie B, nummer 144/A te Gent. ");
-                sbMed.append("De aanvrager, mevrouw Sophie Peeters, wenst een omgevingsvergunning te bekomen voor de exploitatie van een warmtepompinstallatie conform VLAREM II regelgeving. ");
-                sbMed.append("Burgers en belanghebbenden kunnen tot uiterlijk 15 november 2026 bezwaarschriften indienen bij het schepencollege. ");
+                sbMed.append("Op ").append(10 + i).append(
+                        " oktober 2026 heeft het Departement Omgeving een openbaar onderzoek ingesteld naar perceel afdeling 2, "
+                                + "sectie B, nummer 144/A te Gent. ");
+                sbMed.append(
+                        "De aanvrager, mevrouw Sophie Peeters, wenst een omgevingsvergunning te bekomen voor de exploitatie van "
+                                + "een warmtepompinstallatie conform VLAREM II regelgeving. ");
+                sbMed.append(
+                        "Burgers en belanghebbenden kunnen tot uiterlijk 15 november 2026 bezwaarschriften indienen bij het schepencollege. ");
             }
             mediumText = loadResource("/benchmarks/medium_gazette_notice.txt", sbMed.toString());
 
@@ -90,17 +101,9 @@ public class BenchmarkSuiteTest {
         }
     }
 
-    record BenchmarkStats(
-        String name,
-        int docChars,
-        int tokenCount,
-        double p50Ms,
-        double p90Ms,
-        double p99Ms,
-        double meanMs,
-        double throughputTokensPerSec,
-        double throughputDocsPerSec
-    ) {}
+    record BenchmarkStats(String name, int docChars, int tokenCount, double p50Ms, double p90Ms, double p99Ms,
+            double meanMs, double throughputTokensPerSec, double throughputDocsPerSec) {
+    }
 
     @Test
     @DisplayName("Run Comprehensive Multi-Tier Benchmark Suite")
@@ -110,7 +113,8 @@ public class BenchmarkSuiteTest {
         System.out.println("================================================================================");
         System.out.println("           WOWOOL REPRODUCIBLE ACADEMIC BENCHMARK SUITE (JAVA 22 FFM)           ");
         System.out.println("================================================================================");
-        System.out.printf("Hardware: %s (%d cores)%n", System.getProperty("os.arch"), Runtime.getRuntime().availableProcessors());
+        System.out.printf("Hardware: %s (%d cores)%n", System.getProperty("os.arch"),
+                Runtime.getRuntime().availableProcessors());
         System.out.printf("OS: %s %s%n", System.getProperty("os.name"), System.getProperty("os.version"));
         System.out.printf("Java: %s (%s)%n", System.getProperty("java.version"), System.getProperty("java.vendor"));
         System.out.println("--------------------------------------------------------------------------------");
@@ -128,11 +132,13 @@ public class BenchmarkSuiteTest {
         // Print Summary Table
         System.out.println();
         System.out.println("### Empirical Benchmark Results Summary");
-        System.out.println("| Benchmark Configuration | Size (chars) | Tokens | P50 (ms) | P90 (ms) | P99 (ms) | Mean (ms) | Throughput (Tokens/s) | Docs/s |");
+        System.out.println(
+                "| Benchmark Configuration | Size (chars) | Tokens | P50 (ms) | P90 (ms) | P99 (ms) | Mean (ms) | Throughput (Tokens/s) | Docs/s |");
         System.out.println("|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|");
         for (BenchmarkStats s : results) {
-            System.out.printf("| %-23s | %10d | %6d | %8.3f | %8.3f | %8.3f | %9.3f | %21.0f | %6.0f |%n",
-                s.name(), s.docChars(), s.tokenCount(), s.p50Ms(), s.p90Ms(), s.p99Ms(), s.meanMs(), s.throughputTokensPerSec(), s.throughputDocsPerSec());
+            System.out.printf("| %-23s | %10d | %6d | %8.3f | %8.3f | %8.3f | %9.3f | %21.0f | %6.0f |%n", s.name(),
+                    s.docChars(), s.tokenCount(), s.p50Ms(), s.p90Ms(), s.p99Ms(), s.meanMs(),
+                    s.throughputTokensPerSec(), s.throughputDocsPerSec());
         }
         System.out.println("--------------------------------------------------------------------------------");
 
@@ -171,17 +177,20 @@ public class BenchmarkSuiteTest {
             double p99 = durationsNs[(int) (MEASURE_ITERATIONS * 0.99)] / 1_000_000.0;
 
             long sumNs = 0;
-            for (long d : durationsNs) sumNs += d;
+            for (long d : durationsNs) {
+                sumNs += d;
+            }
             double meanMs = (sumNs / (double) MEASURE_ITERATIONS) / 1_000_000.0;
 
             double totalSeconds = totalElapsedNs / 1_000_000_000.0;
             double throughputTokens = (MEASURE_ITERATIONS * (long) tokenCount) / totalSeconds;
             double throughputDocs = MEASURE_ITERATIONS / totalSeconds;
 
-            System.out.printf("[DONE] %-25s -> Mean: %.3f ms | P90: %.3f ms | Throughput: %,.0f tokens/s%n",
-                testName, meanMs, p90, throughputTokens);
+            System.out.printf("[DONE] %-25s -> Mean: %.3f ms | P90: %.3f ms | Throughput: %,.0f tokens/s%n", testName,
+                    meanMs, p90, throughputTokens);
 
-            return new BenchmarkStats(testName, text.length(), tokenCount, p50, p90, p99, meanMs, throughputTokens, throughputDocs);
+            return new BenchmarkStats(testName, text.length(), tokenCount, p50, p90, p99, meanMs, throughputTokens,
+                    throughputDocs);
         }
     }
 
@@ -191,13 +200,16 @@ public class BenchmarkSuiteTest {
 
         System.out.println();
         System.out.println("### Multi-Core Scaling Profile (Medium Document: ~800 tokens, 'dutch,entity')");
-        System.out.println("| Threads | Total Docs | Total Time (s) | Aggregate Throughput (Tokens/s) | Speedup Factor |");
+        System.out.println(
+                "| Threads | Total Docs | Total Time (s) | Aggregate Throughput (Tokens/s) | Speedup Factor |");
         System.out.println("|:---:|:---:|:---:|:---:|:---:|");
 
         double baselineThroughput = 0.0;
 
         for (int threads : threadCounts) {
-            if (threads > Runtime.getRuntime().availableProcessors()) continue;
+            if (threads > Runtime.getRuntime().availableProcessors()) {
+                continue;
+            }
 
             try (WowoolPipelinePool pool = engine.pool("dutch", threads, "entity")) {
                 ExecutorService executor = Executors.newFixedThreadPool(threads);
@@ -217,7 +229,9 @@ public class BenchmarkSuiteTest {
 
                 long start = System.nanoTime();
                 List<Future<Void>> futures = executor.invokeAll(tasks);
-                for (Future<Void> f : futures) f.get();
+                for (Future<Void> f : futures) {
+                    f.get();
+                }
                 long elapsedNs = System.nanoTime() - start;
 
                 executor.shutdown();
@@ -232,8 +246,8 @@ public class BenchmarkSuiteTest {
                 }
                 double speedup = aggThroughput / baselineThroughput;
 
-                System.out.printf("| %7d | %10d | %14.3f | %,31.0f | %13.2fx |%n",
-                    threads, totalDocs, elapsedSec, aggThroughput, speedup);
+                System.out.printf("| %7d | %10d | %14.3f | %,31.0f | %13.2fx |%n", threads, totalDocs, elapsedSec,
+                        aggThroughput, speedup);
             }
         }
     }
@@ -244,10 +258,12 @@ public class BenchmarkSuiteTest {
             Files.createDirectories(targetDir);
             Path csvFile = targetDir.resolve("benchmark_results.csv");
             try (PrintWriter pw = new PrintWriter(new FileWriter(csvFile.toFile()))) {
-                pw.println("benchmark_name,doc_chars,token_count,p50_ms,p90_ms,p99_ms,mean_ms,tokens_per_sec,docs_per_sec");
+                pw.println(
+                        "benchmark_name,doc_chars,token_count,p50_ms,p90_ms,p99_ms,mean_ms,tokens_per_sec,docs_per_sec");
                 for (BenchmarkStats s : results) {
-                    pw.printf(Locale.US, "%s,%d,%d,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f%n",
-                        s.name(), s.docChars(), s.tokenCount(), s.p50Ms(), s.p90Ms(), s.p99Ms(), s.meanMs(), s.throughputTokensPerSec(), s.throughputDocsPerSec());
+                    pw.printf(Locale.US, "%s,%d,%d,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f%n", s.name(), s.docChars(),
+                            s.tokenCount(), s.p50Ms(), s.p90Ms(), s.p99Ms(), s.meanMs(), s.throughputTokensPerSec(),
+                            s.throughputDocsPerSec());
                 }
             }
             System.out.printf("%n[EXPORT] Benchmark results written to: %s%n", csvFile.toAbsolutePath());

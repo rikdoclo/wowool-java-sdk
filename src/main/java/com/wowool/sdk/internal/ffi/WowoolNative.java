@@ -18,14 +18,19 @@ package com.wowool.sdk.internal.ffi;
 
 import com.wowool.sdk.WowoolException;
 
-import java.lang.foreign.*;
+import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
+import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Low-level Project Panama (Foreign Function &amp; Memory API - JEP 454) binding
- * to the Wowool C++ Engine native C ABI (tir_api_*).
+ * Low-level Project Panama (Foreign Function &amp; Memory API - JEP 454)
+ * binding to the Wowool C++ Engine native C ABI (tir_api_*).
  */
 public final class WowoolNative {
 
@@ -46,10 +51,13 @@ public final class WowoolNative {
     private static MethodHandle engineInfoHandle;
     private static MethodHandle domainInfoHandle;
 
-    private WowoolNative() {}
+    private WowoolNative() {
+    }
 
     public static synchronized void ensureLoaded(Path dylibDir) {
-        if (loaded) return;
+        if (loaded) {
+            return;
+        }
 
         try {
             Path icuData = dylibDir.resolve("libicudata.dylib");
@@ -64,7 +72,9 @@ public final class WowoolNative {
             }
 
             if (!Files.exists(wowoolLib)) {
-                throw new WowoolException("Native library (libwowool.3.3.2.dylib / libwowool.dylib / libwowool.so) not found in " + dylibDir);
+                throw new WowoolException(
+                        "Native library (libwowool.3.3.2.dylib / libwowool.dylib / libwowool.so) not found in "
+                                + dylibDir);
             }
 
             if (Files.exists(icuData)) {
@@ -77,111 +87,112 @@ public final class WowoolNative {
 
             Linker linker = Linker.nativeLinker();
 
-            // Ensure WOWOOL_ROOT and WOWOOL_SDK_KEY are exported into the native process environment via POSIX setenv
+            // Ensure WOWOOL_ROOT and WOWOOL_SDK_KEY are exported into the native process
+            // environment via POSIX setenv
             linker.defaultLookup().find("setenv").ifPresent(setenvSym -> {
                 try (Arena a = Arena.ofConfined()) {
-                    MethodHandle setenv = linker.downcallHandle(
-                        setenvSym,
-                        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
-                    );
+                    MethodHandle setenv = linker.downcallHandle(setenvSym, FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
                     Path wowoolRoot = WowoolPaths.resolveWowoolRoot();
                     setenv.invoke(a.allocateFrom("WOWOOL_ROOT"), a.allocateFrom(wowoolRoot.toString()), 1);
 
                     try {
                         String key = WowoolPaths.resolveLicenseKey();
                         setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key), 1);
-                    } catch (Throwable ignored) {}
-                } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {
+                    }
+                } catch (Throwable ignored) {
+                }
             });
 
             SymbolLookup lookup = SymbolLookup.loaderLookup();
 
-            // tir_api_get_engine(char const *options, size_t options_size, tir_exception *ex_info)
-            getEngineHandle = linker.downcallHandle(
-                lookup.find("tir_api_get_engine").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_get_engine(char const *options, size_t options_size, tir_exception
+            // *ex_info)
+            getEngineHandle = linker.downcallHandle(lookup.find("tir_api_get_engine").orElseThrow(), FunctionDescriptor
+                    .of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_get_analyzer(tir_object *c_eng, char const *c_options, size_t c_options_size, tir_exception *ex_info)
-            getAnalyzerHandle = linker.downcallHandle(
-                lookup.find("tir_api_get_analyzer").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_get_analyzer(tir_object *c_eng, char const *c_options, size_t
+            // c_options_size, tir_exception *ex_info)
+            getAnalyzerHandle = linker.downcallHandle(lookup.find("tir_api_get_analyzer").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_analyze_document(tir_object *c_ana, char const *c_document, size_t c_document_size, char const *c_options, size_t c_options_size, tir_exception *ex_info)
-            analyzeDocumentHandle = linker.downcallHandle(
-                lookup.find("tir_api_analyze_document").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_analyze_document(tir_object *c_ana, char const *c_document, size_t
+            // c_document_size, char const *c_options, size_t c_options_size, tir_exception
+            // *ex_info)
+            analyzeDocumentHandle = linker.downcallHandle(lookup.find("tir_api_analyze_document").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_load_domain(tir_object *c_eng, const char *c_domain_name, char const *c_options, size_t c_options_size, tir_exception *ex_info)
-            loadDomainHandle = linker.downcallHandle(
-                lookup.find("tir_api_load_domain").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_load_domain(tir_object *c_eng, const char *c_domain_name, char const
+            // *c_options, size_t c_options_size, tir_exception *ex_info)
+            loadDomainHandle = linker.downcallHandle(lookup.find("tir_api_load_domain").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_domain_process(tir_object const *c_domain, tir_object *c_result, tir_exception *ex_info)
-            domainProcessHandle = linker.downcallHandle(
-                lookup.find("tir_api_domain_process").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-            );
+            // tir_api_domain_process(tir_object const *c_domain, tir_object *c_result,
+            // tir_exception *ex_info)
+            domainProcessHandle = linker.downcallHandle(lookup.find("tir_api_domain_process").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS));
 
-            // tir_api_get_result_json_buffer(tir_object *c_result, size_t *c_buffer_size, tir_exception *ex_info)
-            getJsonBufferHandle = linker.downcallHandle(
-                lookup.find("tir_api_get_result_json_buffer").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-            );
+            // tir_api_get_result_json_buffer(tir_object *c_result, size_t *c_buffer_size,
+            // tir_exception *ex_info)
+            getJsonBufferHandle = linker.downcallHandle(lookup.find("tir_api_get_result_json_buffer").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS));
 
             // tir_api_dec_ref(struct tir_object *object, struct tir_exception *ex_info)
-            decRefHandle = linker.downcallHandle(
-                lookup.find("tir_api_dec_ref").orElseThrow(),
-                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-            );
+            decRefHandle = linker.downcallHandle(lookup.find("tir_api_dec_ref").orElseThrow(),
+                    FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
-            // tir_api_get_lid_engine(tir_object *c_eng, char const *options, size_t options_size, tir_exception *ex_info)
-            getLidHandle = linker.downcallHandle(
-                lookup.find("tir_api_get_lid_engine").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_get_lid_engine(tir_object *c_eng, char const *options, size_t
+            // options_size, tir_exception *ex_info)
+            getLidHandle = linker.downcallHandle(lookup.find("tir_api_get_lid_engine").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_language_identification(tir_object *c_eng, char const *c_prop, size_t c_prop_sz, char *val, size_t val_sz, tir_exception *ex_info)
-            lidIdentHandle = linker.downcallHandle(
-                lookup.find("tir_api_language_identification").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_language_identification(tir_object *c_eng, char const *c_prop, size_t
+            // c_prop_sz, char *val, size_t val_sz, tir_exception *ex_info)
+            lidIdentHandle = linker.downcallHandle(lookup.find("tir_api_language_identification").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_language_identification_section(tir_object *c_eng, char const *doc, size_t doc_sz, tir_exception *ex_info)
+            // tir_api_language_identification_section(tir_object *c_eng, char const *doc,
+            // size_t doc_sz, tir_exception *ex_info)
             lidIdentSectionHandle = linker.downcallHandle(
-                lookup.find("tir_api_language_identification_section").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+                    lookup.find("tir_api_language_identification_section").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
-            // tir_api_language_identification_section_json(tir_object *c_lid_result, tir_exception *ex_info)
+            // tir_api_language_identification_section_json(tir_object *c_lid_result,
+            // tir_exception *ex_info)
             lidIdentSectionJsonHandle = linker.downcallHandle(
-                lookup.find("tir_api_language_identification_section_json").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-            );
+                    lookup.find("tir_api_language_identification_section_json").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
-            // tir_api_compile_domain(char const *c_options, size_t c_options_size, tir_exception *ex_info)
-            compileDomainHandle = linker.downcallHandle(
-                lookup.find("tir_api_compile_domain").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
-            );
+            // tir_api_compile_domain(char const *c_options, size_t c_options_size,
+            // tir_exception *ex_info)
+            compileDomainHandle = linker.downcallHandle(lookup.find("tir_api_compile_domain").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG,
+                            ValueLayout.ADDRESS));
 
-            // tir_api_engine_languages(tir_object *c_eng, size_t *c_buffer_size, tir_exception *ex_info)
-            lookup.find("tir_api_engine_languages").ifPresent(sym ->
-                engineLanguagesHandle = linker.downcallHandle(sym, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
-            );
+            // tir_api_engine_languages(tir_object *c_eng, size_t *c_buffer_size,
+            // tir_exception *ex_info)
+            lookup.find("tir_api_engine_languages")
+                    .ifPresent(sym -> engineLanguagesHandle = linker.downcallHandle(sym, FunctionDescriptor
+                            .of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)));
 
-            // tir_api_engine_info(tir_object *c_eng, size_t *c_buffer_size, tir_exception *ex_info)
-            lookup.find("tir_api_engine_info").ifPresent(sym ->
-                engineInfoHandle = linker.downcallHandle(sym, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
-            );
+            // tir_api_engine_info(tir_object *c_eng, size_t *c_buffer_size, tir_exception
+            // *ex_info)
+            lookup.find("tir_api_engine_info")
+                    .ifPresent(sym -> engineInfoHandle = linker.downcallHandle(sym, FunctionDescriptor
+                            .of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)));
 
             // tir_api_domain_info(tir_object *c_domain, tir_exception *ex_info)
-            lookup.find("tir_api_domain_info").ifPresent(sym ->
-                domainInfoHandle = linker.downcallHandle(sym, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
-            );
+            lookup.find("tir_api_domain_info").ifPresent(sym -> domainInfoHandle = linker.downcallHandle(sym,
+                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)));
 
             loaded = true;
         } catch (Throwable t) {
@@ -201,7 +212,8 @@ public final class WowoolNative {
         }
     }
 
-    public static MemorySegment createAnalyzer(MemorySegment enginePtr, String optionsJson, Arena arena, MemorySegment exInfo) {
+    public static MemorySegment createAnalyzer(MemorySegment enginePtr, String optionsJson, Arena arena,
+            MemorySegment exInfo) {
         try {
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
             long len = optSeg.byteSize() - 1;
@@ -213,7 +225,8 @@ public final class WowoolNative {
         }
     }
 
-    public static MemorySegment loadDomain(MemorySegment enginePtr, String domainPath, String optionsJson, Arena arena, MemorySegment exInfo) {
+    public static MemorySegment loadDomain(MemorySegment enginePtr, String domainPath, String optionsJson, Arena arena,
+            MemorySegment exInfo) {
         try {
             MemorySegment pathSeg = arena.allocateFrom(domainPath);
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
@@ -226,13 +239,15 @@ public final class WowoolNative {
         }
     }
 
-    public static MemorySegment analyzeDocument(MemorySegment analyzerPtr, String text, String optionsJson, Arena arena, MemorySegment exInfo) {
+    public static MemorySegment analyzeDocument(MemorySegment analyzerPtr, String text, String optionsJson, Arena arena,
+            MemorySegment exInfo) {
         try {
             MemorySegment textSeg = arena.allocateFrom(text);
             long textLen = textSeg.byteSize() - 1;
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
             long optLen = optSeg.byteSize() - 1;
-            MemorySegment ptr = (MemorySegment) analyzeDocumentHandle.invokeExact(analyzerPtr, textSeg, textLen, optSeg, optLen, exInfo);
+            MemorySegment ptr = (MemorySegment) analyzeDocumentHandle.invokeExact(analyzerPtr, textSeg, textLen, optSeg,
+                    optLen, exInfo);
             checkException("tir_api_analyze_document", exInfo);
             return ptr;
         } catch (Throwable t) {
@@ -262,7 +277,8 @@ public final class WowoolNative {
         }
     }
 
-    public static MemorySegment createLid(MemorySegment enginePtr, String optionsJson, Arena arena, MemorySegment exInfo) {
+    public static MemorySegment createLid(MemorySegment enginePtr, String optionsJson, Arena arena,
+            MemorySegment exInfo) {
         try {
             MemorySegment optSeg = arena.allocateFrom(optionsJson);
             long len = optSeg.byteSize() - 1;
@@ -281,7 +297,9 @@ public final class WowoolNative {
             MemorySegment buf = arena.allocate(100);
             long bytes = (long) lidIdentHandle.invokeExact(lidPtr, textSeg, textLen, buf, 100L, exInfo);
             checkException("tir_api_language_identification", exInfo);
-            if (bytes <= 0) return "unknown";
+            if (bytes <= 0) {
+                return "unknown";
+            }
             long safeLen = Math.min(bytes, 100L);
             return new String(buf.reinterpret(safeLen).toArray(ValueLayout.JAVA_BYTE)).trim();
         } catch (Throwable t) {
@@ -289,16 +307,20 @@ public final class WowoolNative {
         }
     }
 
-    public static String identifyLanguageSectionJson(MemorySegment lidPtr, String text, Arena arena, MemorySegment exInfo) {
+    public static String identifyLanguageSectionJson(MemorySegment lidPtr, String text, Arena arena,
+            MemorySegment exInfo) {
         try {
             MemorySegment textSeg = arena.allocateFrom(text);
             long textLen = textSeg.byteSize() - 1;
-            MemorySegment secResPtr = (MemorySegment) lidIdentSectionHandle.invokeExact(lidPtr, textSeg, textLen, exInfo);
+            MemorySegment secResPtr = (MemorySegment) lidIdentSectionHandle.invokeExact(lidPtr, textSeg, textLen,
+                    exInfo);
             checkException("tir_api_language_identification_section", exInfo);
 
             MemorySegment jsonPtr = (MemorySegment) lidIdentSectionJsonHandle.invokeExact(secResPtr, exInfo);
             checkException("tir_api_language_identification_section_json", exInfo);
-            String json = (jsonPtr == null || jsonPtr.address() == 0) ? "{}" : jsonPtr.reinterpret(Long.MAX_VALUE).getString(0);
+            String json = (jsonPtr == null || jsonPtr.address() == 0)
+                    ? "{}"
+                    : jsonPtr.reinterpret(Long.MAX_VALUE).getString(0);
             decRef(secResPtr, exInfo);
             return json;
         } catch (Throwable t) {
@@ -322,12 +344,16 @@ public final class WowoolNative {
     }
 
     public static String getEngineLanguages(MemorySegment enginePtr, Arena arena, MemorySegment exInfo) {
-        if (engineLanguagesHandle == null) return "{}";
+        if (engineLanguagesHandle == null) {
+            return "{}";
+        }
         try {
             MemorySegment sizeSeg = arena.allocate(ValueLayout.JAVA_LONG);
             MemorySegment resPtr = (MemorySegment) engineLanguagesHandle.invokeExact(enginePtr, sizeSeg, exInfo);
             checkException("tir_api_engine_languages", exInfo);
-            if (resPtr == null || resPtr.address() == 0) return "{}";
+            if (resPtr == null || resPtr.address() == 0) {
+                return "{}";
+            }
             return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
         } catch (Throwable t) {
             throw rethrow(t);
@@ -335,12 +361,16 @@ public final class WowoolNative {
     }
 
     public static String getEngineInfo(MemorySegment enginePtr, Arena arena, MemorySegment exInfo) {
-        if (engineInfoHandle == null) return "{}";
+        if (engineInfoHandle == null) {
+            return "{}";
+        }
         try {
             MemorySegment sizeSeg = arena.allocate(ValueLayout.JAVA_LONG);
             MemorySegment resPtr = (MemorySegment) engineInfoHandle.invokeExact(enginePtr, sizeSeg, exInfo);
             checkException("tir_api_engine_info", exInfo);
-            if (resPtr == null || resPtr.address() == 0) return "{}";
+            if (resPtr == null || resPtr.address() == 0) {
+                return "{}";
+            }
             return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
         } catch (Throwable t) {
             throw rethrow(t);
@@ -348,11 +378,15 @@ public final class WowoolNative {
     }
 
     public static String getDomainInfo(MemorySegment domainPtr, MemorySegment exInfo) {
-        if (domainInfoHandle == null) return "{}";
+        if (domainInfoHandle == null) {
+            return "{}";
+        }
         try {
             MemorySegment resPtr = (MemorySegment) domainInfoHandle.invokeExact(domainPtr, exInfo);
             checkException("tir_api_domain_info", exInfo);
-            if (resPtr == null || resPtr.address() == 0) return "{}";
+            if (resPtr == null || resPtr.address() == 0) {
+                return "{}";
+            }
             return resPtr.reinterpret(Long.MAX_VALUE).getString(0);
         } catch (Throwable t) {
             throw rethrow(t);
@@ -360,7 +394,9 @@ public final class WowoolNative {
     }
 
     public static void decRef(MemorySegment objPtr, MemorySegment exInfo) {
-        if (objPtr == null || objPtr.address() == 0) return;
+        if (objPtr == null || objPtr.address() == 0) {
+            return;
+        }
         try {
             decRefHandle.invokeExact(objPtr, exInfo);
         } catch (Throwable t) {
@@ -383,8 +419,12 @@ public final class WowoolNative {
     }
 
     private static RuntimeException rethrow(Throwable t) {
-        if (t instanceof WowoolException we) return we;
-        if (t instanceof RuntimeException re) return re;
+        if (t instanceof WowoolException we) {
+            return we;
+        }
+        if (t instanceof RuntimeException re) {
+            return re;
+        }
         return new WowoolException("Unexpected native exception: " + t.getMessage(), t);
     }
 }

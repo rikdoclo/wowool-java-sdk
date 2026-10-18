@@ -20,21 +20,27 @@ import com.wowool.sdk.model.EntitySpan;
 import com.wowool.sdk.model.SentenceSpan;
 import com.wowool.sdk.model.TokenSpan;
 import com.wowool.sdk.model.WowoolDocument;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * High-performance JSON parser mapping the native C++ TIR output into typed WowoolDocument models.
+ * High-performance JSON parser mapping the native C++ TIR output into typed
+ * WowoolDocument models.
  */
 public final class WowoolJsonParser {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private WowoolJsonParser() {}
+    private WowoolJsonParser() {
+    }
 
     public static WowoolDocument parse(String text, String rawJson) throws IOException {
         JsonNode root = MAPPER.readTree(rawJson);
@@ -51,7 +57,9 @@ public final class WowoolJsonParser {
 
         if (sentencesNode.isArray()) {
             for (JsonNode sentNode : sentencesNode) {
-                if (!sentNode.isArray() || sentNode.size() < 4) continue;
+                if (!sentNode.isArray() || sentNode.size() < 4) {
+                    continue;
+                }
 
                 int sentByteBegin = sentNode.get(1).asInt();
                 int sentByteEnd = sentNode.get(2).asInt();
@@ -65,7 +73,9 @@ public final class WowoolJsonParser {
                 JsonNode annotationsNode = sentNode.get(3);
                 if (annotationsNode.isArray()) {
                     for (JsonNode ann : annotationsNode) {
-                        if (!ann.isArray() || ann.isEmpty()) continue;
+                        if (!ann.isArray() || ann.isEmpty()) {
+                            continue;
+                        }
                         int annType = ann.get(0).asInt();
 
                         if (annType == 2 && ann.size() >= 4) {
@@ -76,7 +86,8 @@ public final class WowoolJsonParser {
                             int end = toCharOffset(byteEnd, byteToChar, textCharLen);
                             String uri = ann.get(3).asText();
 
-                            // "Sentence" concept represents the structural sentence itself; skip as an entity
+                            // "Sentence" concept represents the structural sentence itself; skip as an
+                            // entity
                             if ("Sentence".equalsIgnoreCase(uri)) {
                                 continue;
                             }
@@ -111,9 +122,15 @@ public final class WowoolJsonParser {
                             if (ann.size() > 5 && ann.get(5).isArray() && !ann.get(5).isEmpty()) {
                                 JsonNode morph = ann.get(5).get(0);
                                 if (morph.isArray()) {
-                                    if (morph.size() > 0) lemma = morph.get(0).asText();
-                                    if (morph.size() > 1) pos = morph.get(1).asText();
-                                    if (morph.size() > 2 && morph.get(2).isTextual()) stem = morph.get(2).asText();
+                                    if (morph.size() > 0) {
+                                        lemma = morph.get(0).asText();
+                                    }
+                                    if (morph.size() > 1) {
+                                        pos = morph.get(1).asText();
+                                    }
+                                    if (morph.size() > 2 && morph.get(2).isTextual()) {
+                                        stem = morph.get(2).asText();
+                                    }
                                 }
                             }
 
@@ -132,8 +149,9 @@ public final class WowoolJsonParser {
     }
 
     /**
-     * Builds a fast lookup table mapping UTF-8 byte offsets to Java UTF-16 char offsets.
-     * Returns null if the text is pure ASCII (fast-path where byteOffset == charOffset).
+     * Builds a fast lookup table mapping UTF-8 byte offsets to Java UTF-16 char
+     * offsets. Returns null if the text is pure ASCII (fast-path where byteOffset
+     * == charOffset).
      */
     static int[] buildByteToCharMap(String text) {
         if (text == null || text.isEmpty()) {
@@ -158,7 +176,8 @@ public final class WowoolJsonParser {
                 totalBytes += 1;
             } else if (c <= 0x7FF) {
                 totalBytes += 2;
-            } else if (Character.isHighSurrogate(c) && i + 1 < charLen && Character.isLowSurrogate(text.charAt(i + 1))) {
+            } else if (Character.isHighSurrogate(c) && i + 1 < charLen
+                    && Character.isLowSurrogate(text.charAt(i + 1))) {
                 totalBytes += 4;
                 i++;
             } else {
@@ -175,7 +194,8 @@ public final class WowoolJsonParser {
             } else if (c <= 0x7FF) {
                 byteToChar[byteIdx++] = i;
                 byteToChar[byteIdx++] = i;
-            } else if (Character.isHighSurrogate(c) && i + 1 < charLen && Character.isLowSurrogate(text.charAt(i + 1))) {
+            } else if (Character.isHighSurrogate(c) && i + 1 < charLen
+                    && Character.isLowSurrogate(text.charAt(i + 1))) {
                 byteToChar[byteIdx++] = i;
                 byteToChar[byteIdx++] = i;
                 byteToChar[byteIdx++] = i;
@@ -195,13 +215,19 @@ public final class WowoolJsonParser {
         if (byteToChar == null) {
             return Math.max(0, Math.min(byteOffset, charLen));
         }
-        if (byteOffset <= 0) return 0;
-        if (byteOffset >= byteToChar.length) return charLen;
+        if (byteOffset <= 0) {
+            return 0;
+        }
+        if (byteOffset >= byteToChar.length) {
+            return charLen;
+        }
         return byteToChar[byteOffset];
     }
 
     private static String slice(String text, int begin, int end) {
-        if (text == null) return "";
+        if (text == null) {
+            return "";
+        }
         int safeBegin = Math.max(0, Math.min(begin, text.length()));
         int safeEnd = Math.max(safeBegin, Math.min(end, text.length()));
         return text.substring(safeBegin, safeEnd);
@@ -221,10 +247,18 @@ public final class WowoolJsonParser {
     }
 
     private static Object convertNode(JsonNode node) {
-        if (node == null || node.isNull()) return null;
-        if (node.isTextual()) return node.asText();
-        if (node.isNumber()) return node.numberValue();
-        if (node.isBoolean()) return node.asBoolean();
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isTextual()) {
+            return node.asText();
+        }
+        if (node.isNumber()) {
+            return node.numberValue();
+        }
+        if (node.isBoolean()) {
+            return node.asBoolean();
+        }
         if (node.isArray()) {
             List<Object> list = new ArrayList<>(node.size());
             for (JsonNode item : node) {

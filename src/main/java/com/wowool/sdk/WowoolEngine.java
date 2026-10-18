@@ -27,10 +27,11 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Primary entry point for the native Wowool C++ Engine via Project Panama (JEP 454).
- * Manages the native engine instance and serves as a factory for {@link WowoolPipeline}s,
- * {@link LanguageIdentifier}s, and {@link DomainCompiler}s.
- * Implements {@link AutoCloseable} for deterministic native memory management.
+ * Primary entry point for the native Wowool C++ Engine via Project Panama (JEP
+ * 454). Manages the native engine instance and serves as a factory for
+ * {@link WowoolPipeline}s, {@link LanguageIdentifier}s, and
+ * {@link DomainCompiler}s. Implements {@link AutoCloseable} for deterministic
+ * native memory management.
  */
 public final class WowoolEngine implements AutoCloseable {
 
@@ -46,7 +47,8 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Creates a new WowoolEngine using default discovery rules for license keys and model directories.
+     * Creates a new WowoolEngine using default discovery rules for license keys and
+     * model directories.
      */
     public static WowoolEngine create() {
         return create(WowoolConfig.defaults());
@@ -75,11 +77,14 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Creates an analysis pipeline for the specified language and optional domain models.
-     * Example: {@code engine.pipeline("dutch", "entity")}
+     * Creates an analysis pipeline for the specified language and optional domain
+     * models. Example: {@code engine.pipeline("dutch", "entity")}
      *
-     * @param language Language name (e.g., "dutch", "english", "french", "german")
-     * @param domains Optional domain names (e.g., "entity", "numbers", "sentiment") or paths to .dom files
+     * @param language
+     *            Language name (e.g., "dutch", "english", "french", "german")
+     * @param domains
+     *            Optional domain names (e.g., "entity", "numbers", "sentiment") or
+     *            paths to .dom files
      * @return A configured {@link WowoolPipeline}
      */
     public WowoolPipeline pipeline(String language, String... domains) {
@@ -93,17 +98,23 @@ public final class WowoolEngine implements AutoCloseable {
         ensureOpen();
 
         Path langFile = WowoolPaths.resolveLanguageFile(config.wowoolRoot(), language)
-            .orElseThrow(() -> new WowoolException("Language file for '" + language + "' not found under " + config.wowoolRoot()));
+                .orElseThrow(() -> new WowoolException("Language file for '" + language + "' not found under "
+                        + config.wowoolRoot() + ". Probed directories: "
+                        + WowoolPaths.getModelSearchDirectories(config.wowoolRoot())));
 
         return WowoolPipeline.create(this, langFile, domains);
     }
 
     /**
-     * Creates a pooled pipeline instance for high-throughput multi-threaded concurrent analysis.
+     * Creates a pooled pipeline instance for high-throughput multi-threaded
+     * concurrent analysis.
      *
-     * @param language Language name (e.g., "dutch", "english")
-     * @param capacity Number of pipelines to maintain in pool
-     * @param domains Optional domain names or .dom file paths
+     * @param language
+     *            Language name (e.g., "dutch", "english")
+     * @param capacity
+     *            Number of pipelines to maintain in pool
+     * @param domains
+     *            Optional domain names or .dom file paths
      * @return A thread-safe {@link WowoolPipelinePool}
      */
     public WowoolPipelinePool pool(String language, int capacity, String... domains) {
@@ -111,11 +122,15 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Creates a pooled pipeline instance for high-throughput multi-threaded concurrent analysis.
+     * Creates a pooled pipeline instance for high-throughput multi-threaded
+     * concurrent analysis.
      *
-     * @param language Language name (e.g., "dutch", "english")
-     * @param capacity Number of pipelines to maintain in pool
-     * @param domains List of domains to cascade
+     * @param language
+     *            Language name (e.g., "dutch", "english")
+     * @param capacity
+     *            Number of pipelines to maintain in pool
+     * @param domains
+     *            List of domains to cascade
      * @return A thread-safe {@link WowoolPipelinePool}
      */
     public WowoolPipelinePool createPool(String language, int capacity, List<String> domains) {
@@ -124,7 +139,8 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Creates a new {@link LanguageIdentifier} for sub-millisecond language identification.
+     * Creates a new {@link LanguageIdentifier} for sub-millisecond language
+     * identification.
      */
     public LanguageIdentifier languageIdentifier() {
         ensureOpen();
@@ -132,7 +148,8 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Creates a {@link DomainCompiler} to compile .wow / .woc rule files to binary .dom files.
+     * Creates a {@link DomainCompiler} to compile .wow / .woc rule files to binary
+     * .dom files.
      */
     public DomainCompiler compiler() {
         ensureOpen();
@@ -140,7 +157,8 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Retrieves the native engine runtime capabilities and version metadata as a JSON string.
+     * Retrieves the native engine runtime capabilities and version metadata as a
+     * JSON string.
      */
     public String info() {
         ensureOpen();
@@ -151,7 +169,8 @@ public final class WowoolEngine implements AutoCloseable {
     }
 
     /**
-     * Retrieves registered languages and dictionaries in the native engine as a JSON string.
+     * Retrieves registered languages and dictionaries in the native engine as a
+     * JSON string.
      */
     public String languages() {
         ensureOpen();

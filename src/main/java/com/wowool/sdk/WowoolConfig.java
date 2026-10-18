@@ -23,15 +23,14 @@ import java.nio.file.Path;
 /**
  * Configuration options for initializing the {@link WowoolEngine}.
  *
- * @param licenseKey The commercial Wowool SDK key
- * @param dylibDir Directory containing the native Wowool shared libraries
- * @param wowoolRoot Directory containing the language models (lxware/wowool)
+ * @param licenseKey
+ *            The commercial Wowool SDK key
+ * @param dylibDir
+ *            Directory containing the native Wowool shared libraries
+ * @param wowoolRoot
+ *            Directory containing the language models (lxware/wowool)
  */
-public record WowoolConfig(
-    String licenseKey,
-    Path dylibDir,
-    Path wowoolRoot
-) {
+public record WowoolConfig(String licenseKey, Path dylibDir, Path wowoolRoot) {
     public static Builder builder() {
         return new Builder();
     }

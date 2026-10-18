@@ -30,11 +30,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * An instantiated Wowool analysis pipeline.
- * Holds references to the native analyzer and sequentially chained binary domains (.dom).
- * Executes sub-millisecond in-memory linguistic analysis and returns typed {@link WowoolDocument} instances.
+ * An instantiated Wowool analysis pipeline. Holds references to the native
+ * analyzer and sequentially chained binary domains (.dom). Executes
+ * sub-millisecond in-memory linguistic analysis and returns typed
+ * {@link WowoolDocument} instances.
  */
 public final class WowoolPipeline implements AutoCloseable {
 
@@ -44,14 +46,10 @@ public final class WowoolPipeline implements AutoCloseable {
     private final List<MemorySegment> domainPtrs;
     private final List<String> domainNames;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final ReentrantLock lock = new ReentrantLock();
 
-    private WowoolPipeline(
-        WowoolEngine engine,
-        Path languagePath,
-        MemorySegment analyzerPtr,
-        List<MemorySegment> domainPtrs,
-        List<String> domainNames
-    ) {
+    private WowoolPipeline(WowoolEngine engine, Path languagePath, MemorySegment analyzerPtr,
+            List<MemorySegment> domainPtrs, List<String> domainNames) {
         this.engine = engine;
         this.languagePath = languagePath;
         this.analyzerPtr = analyzerPtr;
@@ -75,40 +73,37 @@ public final class WowoolPipeline implements AutoCloseable {
             if (domainNames != null) {
                 String langName = extractLanguageName(languagePath);
                 for (String domain : domainNames) {
-                    if (domain == null || domain.isBlank()) continue;
+                    if (domain == null || domain.isBlank()) {
+                        continue;
+                    }
 
                     Path domFile = WowoolPaths.resolveDomainFile(engine.config().wowoolRoot(), langName, domain)
-                        .orElseThrow(() -> new WowoolException("Domain file for '" + domain + "' (language: " + langName + ") not found."));
+                            .orElseThrow(() -> new WowoolException(
+                                    "Domain file for '" + domain + "' (language: " + langName + ") not found in "
+                                            + engine.config().wowoolRoot() + ". Probed directories: "
+                                            + WowoolPaths.getModelSearchDirectories(engine.config().wowoolRoot())));
 
-                    MemorySegment domainPtr = WowoolNative.loadDomain(
-                        engine.nativePointer(),
-                        domFile.toAbsolutePath().toString(),
-                        "{}",
-                        arena,
-                        exInfo
-                    );
+                    MemorySegment domainPtr = WowoolNative.loadDomain(engine.nativePointer(),
+                            domFile.toAbsolutePath().toString(), "{}", arena, exInfo);
                     domainPtrs.add(domainPtr);
                     resolvedDomainNames.add(domain);
                 }
             }
 
-            return new WowoolPipeline(
-                engine,
-                languagePath,
-                analyzerPtr,
-                Collections.unmodifiableList(domainPtrs),
-                Collections.unmodifiableList(resolvedDomainNames)
-            );
+            return new WowoolPipeline(engine, languagePath, analyzerPtr, Collections.unmodifiableList(domainPtrs),
+                    Collections.unmodifiableList(resolvedDomainNames));
         } catch (Throwable t) {
             // Clean up native resources on failure to avoid off-heap memory leaks
             for (MemorySegment dPtr : domainPtrs) {
                 try {
                     WowoolNative.decRef(dPtr, exInfo);
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {
+                }
             }
             try {
                 WowoolNative.decRef(analyzerPtr, exInfo);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
             throw (t instanceof RuntimeException re) ? re : new WowoolException("Failed to initialize pipeline", t);
         }
     }
@@ -116,43 +111,44 @@ public final class WowoolPipeline implements AutoCloseable {
     /**
      * Analyzes the given text using the native C++ engine and configured domains.
      *
-     * @param text The input text to analyze
+     * @param text
+     *            The input text to analyze
      * @return A strongly typed {@link WowoolDocument}
      */
-    public synchronized WowoolDocument analyze(String text) {
-        ensureOpen();
-        if (text == null) text = "";
+    public WowoolDocument analyze(String text) {
+        lock.lock();
+        try {
+            ensureOpen();
+            String inputText = (text == null) ? "" : text;
 
-        try (Arena callArena = Arena.ofConfined()) {
-            MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
+            try (Arena callArena = Arena.ofConfined()) {
+                MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
 
-            // 1. Native linguistic analysis
-            MemorySegment currentResultPtr = WowoolNative.analyzeDocument(
-                analyzerPtr,
-                text,
-                "{}",
-                callArena,
-                exInfo
-            );
+                // 1. Native linguistic analysis
+                MemorySegment currentResultPtr = WowoolNative.analyzeDocument(analyzerPtr, inputText, "{}", callArena,
+                        exInfo);
 
-            // 2. Pass result sequentially through loaded domains
-            for (MemorySegment domPtr : domainPtrs) {
-                currentResultPtr = WowoolNative.processDomain(domPtr, currentResultPtr, exInfo);
+                // 2. Pass result sequentially through loaded domains
+                for (MemorySegment domPtr : domainPtrs) {
+                    currentResultPtr = WowoolNative.processDomain(domPtr, currentResultPtr, exInfo);
+                }
+
+                // 3. Extract JSON buffer
+                byte[] jsonBytes = WowoolNative.getResultJsonBytes(currentResultPtr, callArena, exInfo);
+                String rawJson = new String(jsonBytes, StandardCharsets.UTF_8);
+
+                // 4. Release result object in native memory
+                WowoolNative.decRef(currentResultPtr, exInfo);
+
+                // 5. Parse into typed document
+                try {
+                    return WowoolJsonParser.parse(inputText, rawJson);
+                } catch (IOException e) {
+                    throw new WowoolException("Failed to deserialize native Wowool JSON output: " + e.getMessage(), e);
+                }
             }
-
-            // 3. Extract JSON buffer
-            byte[] jsonBytes = WowoolNative.getResultJsonBytes(currentResultPtr, callArena, exInfo);
-            String rawJson = new String(jsonBytes, StandardCharsets.UTF_8);
-
-            // 4. Release result object in native memory
-            WowoolNative.decRef(currentResultPtr, exInfo);
-
-            // 5. Parse into typed document
-            try {
-                return WowoolJsonParser.parse(text, rawJson);
-            } catch (IOException e) {
-                throw new WowoolException("Failed to deserialize native Wowool JSON output: " + e.getMessage(), e);
-            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -167,13 +163,15 @@ public final class WowoolPipeline implements AutoCloseable {
     /**
      * Inspects the binary metadata and taxonomy of a loaded domain by index.
      *
-     * @param domainIndex Index in the domain cascade (0-based)
+     * @param domainIndex
+     *            Index in the domain cascade (0-based)
      * @return JSON string containing concepts, taxonomy, and rules
      */
     public String domainInfo(int domainIndex) {
         ensureOpen();
         if (domainIndex < 0 || domainIndex >= domainPtrs.size()) {
-            throw new IndexOutOfBoundsException("Invalid domain index: " + domainIndex + " (domain count: " + domainPtrs.size() + ")");
+            throw new IndexOutOfBoundsException(
+                    "Invalid domain index: " + domainIndex + " (domain count: " + domainPtrs.size() + ")");
         }
         try (Arena callArena = Arena.ofConfined()) {
             MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
@@ -190,9 +188,13 @@ public final class WowoolPipeline implements AutoCloseable {
     private static String extractLanguageName(Path langPath) {
         String fn = langPath.getFileName().toString();
         int at = fn.indexOf('@');
-        if (at > 0) return fn.substring(0, at);
+        if (at > 0) {
+            return fn.substring(0, at);
+        }
         int dot = fn.indexOf('.');
-        if (dot > 0) return fn.substring(0, dot);
+        if (dot > 0) {
+            return fn.substring(0, dot);
+        }
         return fn;
     }
 

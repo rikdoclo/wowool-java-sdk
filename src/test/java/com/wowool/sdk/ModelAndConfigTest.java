@@ -29,7 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ModelAndConfigTest {
 
@@ -39,11 +43,8 @@ class ModelAndConfigTest {
         Path mockDylib = Path.of("/opt/custom/lib");
         Path mockRoot = Path.of("/opt/custom/models");
 
-        WowoolConfig config = WowoolConfig.builder()
-            .licenseKey("secret-test-key")
-            .dylibDir(mockDylib)
-            .wowoolRoot(mockRoot)
-            .build();
+        WowoolConfig config = WowoolConfig.builder().licenseKey("secret-test-key").dylibDir(mockDylib)
+                .wowoolRoot(mockRoot).build();
 
         assertEquals("secret-test-key", config.licenseKey());
         assertEquals(mockDylib, config.dylibDir());
@@ -57,20 +58,13 @@ class ModelAndConfigTest {
         TokenSpan t2 = new TokenSpan("Janssen", "janssen", "N(prop)", "janssen", 4, 11, List.of("init-cap"));
 
         EntitySpan e1 = new EntitySpan("Person", "Jan Janssen", 0, 11,
-            Map.of("gender", "male", "canonical", "Jan Janssen"));
-        EntitySpan e2 = new EntitySpan("City", "Amsterdam", 21, 30,
-            Map.of("country", "Netherlands"));
+                Map.of("gender", "male", "canonical", "Jan Janssen"));
+        EntitySpan e2 = new EntitySpan("City", "Amsterdam", 21, 30, Map.of("country", "Netherlands"));
 
         SentenceSpan s1 = new SentenceSpan(0, 31, "Jan Janssen woont in Amsterdam.", List.of(t1, t2), List.of(e1, e2));
 
-        WowoolDocument doc = new WowoolDocument(
-            "Jan Janssen woont in Amsterdam.",
-            "dutch",
-            List.of(s1),
-            List.of(e1, e2),
-            List.of(t1, t2),
-            "{}"
-        );
+        WowoolDocument doc = new WowoolDocument("Jan Janssen woont in Amsterdam.", "dutch", List.of(s1),
+                List.of(e1, e2), List.of(t1, t2), "{}");
 
         assertEquals("Jan Janssen woont in Amsterdam.", doc.text());
         assertEquals("dutch", doc.language());
@@ -114,17 +108,17 @@ class ModelAndConfigTest {
     @DisplayName("Test WowoolJsonParser with direct attribute conversion")
     void testJsonParserDirectAttributes() throws Exception {
         String mockJson = """
-            {
-              "language": "dutch",
-              "sentences": [
-                [0, 0, 31, [
-                  [2, 0, 11, "Person", {"gender": ["male"], "canonical": ["Jan Janssen"]}],
-                  [3, 0, 3, "Jan", ["init-cap"], [["jan", "N(prop)", "jan"]]],
-                  [3, 4, 11, "Janssen", ["init-cap"], [["janssen", "N(prop)", "janssen"]]]
-                ]]
-              ]
-            }
-            """;
+                {
+                  "language": "dutch",
+                  "sentences": [
+                    [0, 0, 31, [
+                      [2, 0, 11, "Person", {"gender": ["male"], "canonical": ["Jan Janssen"]}],
+                      [3, 0, 3, "Jan", ["init-cap"], [["jan", "N(prop)", "jan"]]],
+                      [3, 4, 11, "Janssen", ["init-cap"], [["janssen", "N(prop)", "janssen"]]]
+                    ]]
+                  ]
+                }
+                """;
 
         var doc = com.wowool.sdk.internal.json.WowoolJsonParser.parse("Jan Janssen woont in Amsterdam.", mockJson);
         assertEquals("dutch", doc.language());
@@ -142,7 +136,8 @@ class ModelAndConfigTest {
     @Test
     @DisplayName("Test CompilationResult record")
     void testCompilationResult() {
-        CompilationResult ok = new CompilationResult(true, Path.of("/tmp/rule.dom"), List.of("Compiled successfully"), "{}");
+        CompilationResult ok = new CompilationResult(true, Path.of("/tmp/rule.dom"), List.of("Compiled successfully"),
+                "{}");
         assertTrue(ok.success());
         assertEquals(Path.of("/tmp/rule.dom"), ok.outputFile());
         assertFalse(ok.diagnostics().isEmpty());
@@ -171,9 +166,8 @@ class ModelAndConfigTest {
         Path expectedModels = home.resolve(".wowool/models");
 
         org.junit.jupiter.api.Assumptions.assumeTrue(
-            java.nio.file.Files.isDirectory(expectedLib) && java.nio.file.Files.isDirectory(expectedModels),
-            "Skipping ~/.wowool discovery test when ~/.wowool is not installed on this machine"
-        );
+                java.nio.file.Files.isDirectory(expectedLib) && java.nio.file.Files.isDirectory(expectedModels),
+                "Skipping ~/.wowool discovery test when ~/.wowool is not installed on this machine");
 
         Path dylibDir = com.wowool.sdk.internal.ffi.WowoolPaths.resolveDylibDir();
         Path wowoolRoot = com.wowool.sdk.internal.ffi.WowoolPaths.resolveWowoolRoot();
@@ -231,14 +225,16 @@ class ModelAndConfigTest {
             switch (ann) {
                 case TokenSpan t -> tokenCount++;
                 case EntitySpan e -> entityCount++;
-                case SentenceSpan s -> {}
+                case SentenceSpan s -> {
+                }
             }
         }
         assertEquals(2, tokenCount);
         assertEquals(1, entityCount);
 
         // Document-level annotations
-        WowoolDocument doc = new WowoolDocument("Satya Nadella", "english", List.of(s1), List.of(e1), List.of(t1, t2), "{}");
+        WowoolDocument doc = new WowoolDocument("Satya Nadella", "english", List.of(s1), List.of(e1), List.of(t1, t2),
+                "{}");
         assertEquals(3, doc.annotations().size());
         assertEquals(1, doc.annotationsBetween(0, 5).size()); // only t1
         assertEquals(3, doc.annotationsBetween(0, 13).size()); // t1, t2, e1

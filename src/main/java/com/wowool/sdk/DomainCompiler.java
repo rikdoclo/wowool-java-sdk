@@ -20,16 +20,26 @@ import com.wowool.sdk.internal.ffi.WowoolNative;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.wowool.sdk.rule.RuleSet;
+import com.wowool.sdk.rule.WowoolRule;
+
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * Compiles Wowool rule source code (.wow / .woc) directly from Java
- * into binary domain files (.dom) using the native compiler.
+ * Compiles Wowool rule source code (.wow / .woc) directly from Java into binary
+ * domain files (.dom) using the native compiler.
  */
 public final class DomainCompiler {
 
@@ -43,9 +53,14 @@ public final class DomainCompiler {
     /**
      * Compiles inline Wowool rule source code into a binary .dom domain file.
      *
-     * @param source Wowool rule source code (e.g., {@code "rule: { Person .. <'works'> } = EmploymentRelation;"})
-     * @param outputFile Target binary domain file (.dom)
-     * @param language Base language for morphology and tokenization (e.g., "dutch", "english")
+     * @param source
+     *            Wowool rule source code (e.g., {@code "rule: { Person .. <'works'>
+     *            } = EmploymentRelation;"})
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization (e.g., "dutch",
+     *            "english")
      * @return {@link CompilationResult} containing status and compiler diagnostics
      */
     public CompilationResult compileSource(String source, Path outputFile, String language) {
@@ -55,9 +70,13 @@ public final class DomainCompiler {
     /**
      * Compiles one or more Wowool rule source files into a binary .dom domain file.
      *
-     * @param inputFiles List of source files (.wow or .woc)
-     * @param outputFile Target binary domain file (.dom)
-     * @param language Base language for morphology and tokenization (e.g., "dutch", "english")
+     * @param inputFiles
+     *            List of source files (.wow or .woc)
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization (e.g., "dutch",
+     *            "english")
      * @return {@link CompilationResult} containing status and compiler diagnostics
      */
     public CompilationResult compileFiles(List<Path> inputFiles, Path outputFile, String language) {
@@ -65,16 +84,106 @@ public final class DomainCompiler {
     }
 
     /**
+     * Compiles a structured {@link WowoolRule} into a binary .dom domain file.
+     *
+     * @param rule
+     *            The rule to compile
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization
+     * @return {@link CompilationResult} containing status and compiler diagnostics
+     */
+    public CompilationResult compileRule(WowoolRule rule, Path outputFile, String language) {
+        if (rule == null) {
+            throw new IllegalArgumentException("rule must not be null.");
+        }
+        return compileSource(rule.toDsl(), outputFile, language);
+    }
+
+    /**
+     * Compiles multiple structured {@link WowoolRule}s into a binary .dom domain
+     * file.
+     *
+     * @param rules
+     *            List of rules to compile
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization
+     * @return {@link CompilationResult} containing status and compiler diagnostics
+     */
+    public CompilationResult compileRules(List<WowoolRule> rules, Path outputFile, String language) {
+        return compileRules(rules, outputFile, language, false, true);
+    }
+
+    /**
+     * Compiles multiple structured {@link WowoolRule}s into a binary .dom domain
+     * file with custom flags.
+     *
+     * @param rules
+     *            List of rules to compile
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization
+     * @param strict
+     *            Enable strict validation
+     * @param force
+     *            Force rebuild
+     * @return {@link CompilationResult} containing status and compiler diagnostics
+     */
+    public CompilationResult compileRules(List<WowoolRule> rules, Path outputFile, String language, boolean strict,
+            boolean force) {
+        if (rules == null || rules.isEmpty()) {
+            throw new IllegalArgumentException("rules must not be null or empty.");
+        }
+        String source = rules.stream().map(WowoolRule::toDsl).collect(Collectors.joining("\n\n", "", "\n"));
+        return compile(source, Collections.emptyList(), outputFile, language, strict, force);
+    }
+
+    /**
+     * Compiles an immutable {@link RuleSet} into a binary .dom domain file.
+     *
+     * @param ruleSet
+     *            RuleSet to compile
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization
+     * @return {@link CompilationResult} containing status and compiler diagnostics
+     */
+    public CompilationResult compileRules(RuleSet ruleSet, Path outputFile, String language) {
+        if (ruleSet == null) {
+            throw new IllegalArgumentException("ruleSet must not be null.");
+        }
+        return compileSource(ruleSet.toDsl(), outputFile, language);
+    }
+
+    /**
+     * Compiles one or more structured {@link WowoolRule}s into a binary .dom domain
+     * file.
+     *
+     * @param outputFile
+     *            Target binary domain file (.dom)
+     * @param language
+     *            Base language for morphology and tokenization
+     * @param rules
+     *            Rules to compile
+     * @return {@link CompilationResult} containing status and compiler diagnostics
+     */
+    public CompilationResult compileRules(Path outputFile, String language, WowoolRule... rules) {
+        if (rules == null || rules.length == 0) {
+            throw new IllegalArgumentException("rules must not be null or empty.");
+        }
+        return compileRules(Arrays.asList(rules), outputFile, language);
+    }
+
+    /**
      * Full compilation method supporting custom strictness and force flags.
      */
-    public CompilationResult compile(
-        String source,
-        List<Path> inputFiles,
-        Path outputFile,
-        String language,
-        boolean strict,
-        boolean force
-    ) {
+    public CompilationResult compile(String source, List<Path> inputFiles, Path outputFile, String language,
+            boolean strict, boolean force) {
         if (outputFile == null) {
             throw new IllegalArgumentException("outputFile must not be null.");
         }
@@ -94,7 +203,8 @@ public final class DomainCompiler {
         }
 
         if (inputFiles != null && !inputFiles.isEmpty()) {
-            String joined = String.join(",", inputFiles.stream().map(p -> p.toAbsolutePath().normalize().toString()).toList());
+            String joined = String.join(",",
+                    inputFiles.stream().map(p -> p.toAbsolutePath().normalize().toString()).toList());
             opts.put("input_files", joined);
         }
 

@@ -23,17 +23,16 @@ import java.util.List;
 /**
  * Result of a Wowool rule domain compilation (.wow / .woc -> .dom).
  *
- * @param success Indicates whether compilation succeeded
- * @param outputFile The generated binary .dom domain file
- * @param diagnostics Compiler warnings, syntax errors, or informational messages
- * @param rawJson Raw JSON returned by the native compiler
+ * @param success
+ *            Indicates whether compilation succeeded
+ * @param outputFile
+ *            The generated binary .dom domain file
+ * @param diagnostics
+ *            Compiler warnings, syntax errors, or informational messages
+ * @param rawJson
+ *            Raw JSON returned by the native compiler
  */
-public record CompilationResult(
-    boolean success,
-    Path outputFile,
-    List<String> diagnostics,
-    String rawJson
-) {
+public record CompilationResult(boolean success, Path outputFile, List<String> diagnostics, String rawJson) {
     public CompilationResult {
         diagnostics = (diagnostics == null) ? Collections.emptyList() : Collections.unmodifiableList(diagnostics);
     }

@@ -23,8 +23,9 @@ import java.lang.foreign.MemorySegment;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Automatic language identification using the native Wowool Language Identifier (LID) engine.
- * Detects languages (such as "dutch", "english", "french", "german", "spanish") with sub-millisecond latency.
+ * Automatic language identification using the native Wowool Language Identifier
+ * (LID) engine. Detects languages (such as "dutch", "english", "french",
+ * "german", "spanish") with sub-millisecond latency.
  */
 public final class LanguageIdentifier implements AutoCloseable {
 
@@ -47,12 +48,16 @@ public final class LanguageIdentifier implements AutoCloseable {
     /**
      * Identifies the primary language of the specified text.
      *
-     * @param text The input text to analyze
-     * @return Language code (e.g. "dutch", "english", "french", "german") or "unknown"
+     * @param text
+     *            The input text to analyze
+     * @return Language code (e.g. "dutch", "english", "french", "german") or
+     *         "unknown"
      */
     public synchronized String identify(String text) {
         ensureOpen();
-        if (text == null || text.isBlank()) return "unknown";
+        if (text == null || text.isBlank()) {
+            return "unknown";
+        }
 
         try (Arena callArena = Arena.ofConfined()) {
             MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);
@@ -61,14 +66,19 @@ public final class LanguageIdentifier implements AutoCloseable {
     }
 
     /**
-     * Performs a granular section-based language analysis and returns the native JSON output.
+     * Performs a granular section-based language analysis and returns the native
+     * JSON output.
      *
-     * @param text The input text to analyze
-     * @return JSON string representing detected language sections and confidence scores
+     * @param text
+     *            The input text to analyze
+     * @return JSON string representing detected language sections and confidence
+     *         scores
      */
     public synchronized String identifySectionJson(String text) {
         ensureOpen();
-        if (text == null || text.isBlank()) return "{}";
+        if (text == null || text.isBlank()) {
+            return "{}";
+        }
 
         try (Arena callArena = Arena.ofConfined()) {
             MemorySegment exInfo = WowoolNative.allocateExceptionInfo(callArena);

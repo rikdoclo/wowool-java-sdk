@@ -22,23 +22,23 @@ import java.util.List;
 /**
  * Represents an individual word/punctuation token with linguistic annotations.
  *
- * @param literal The raw textual representation of the token
- * @param lemma The dictionary base form (lemma)
- * @param pos The Part-of-Speech tag (e.g., "V-Pres", "Prop-Std", "Noun-SG")
- * @param stem Optional morphological stem
- * @param beginOffset Character start offset within the document
- * @param endOffset Character end offset within the document
- * @param flags Linguistic flags (e.g., "init-cap", "init-token")
+ * @param literal
+ *            The raw textual representation of the token
+ * @param lemma
+ *            The dictionary base form (lemma)
+ * @param pos
+ *            The Part-of-Speech tag (e.g., "V-Pres", "Prop-Std", "Noun-SG")
+ * @param stem
+ *            Optional morphological stem
+ * @param beginOffset
+ *            Character start offset within the document
+ * @param endOffset
+ *            Character end offset within the document
+ * @param flags
+ *            Linguistic flags (e.g., "init-cap", "init-token")
  */
-public record TokenSpan(
-    String literal,
-    String lemma,
-    String pos,
-    String stem,
-    int beginOffset,
-    int endOffset,
-    List<String> flags
-) implements Annotation {
+public record TokenSpan(String literal, String lemma, String pos, String stem, int beginOffset, int endOffset,
+        List<String> flags) implements Annotation {
     public TokenSpan {
         if (flags == null) {
             flags = Collections.emptyList();
@@ -59,7 +59,8 @@ public record TokenSpan(
     /**
      * Checks if a specific linguistic flag is present on this token.
      *
-     * @param flag Flag name (e.g., "init-cap")
+     * @param flag
+     *            Flag name (e.g., "init-cap")
      * @return true if present, false otherwise
      */
     public boolean hasFlag(String flag) {

@@ -17,7 +17,6 @@
 package com.wowool.sdk;
 
 import com.wowool.sdk.model.EntitySpan;
-import com.wowool.sdk.model.TokenSpan;
 import com.wowool.sdk.model.WowoolDocument;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -28,7 +27,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class WowoolSdkTest {
 
@@ -45,8 +47,8 @@ public class WowoolSdkTest {
             }
         } catch (Throwable e) {
             org.junit.jupiter.api.Assumptions.abort(
-                "Native Wowool engine/license not fully operational in this environment; skipping native tests: " + e.getMessage()
-            );
+                    "Native Wowool engine/license not fully operational in this environment; skipping native tests: "
+                            + e.getMessage());
         }
     }
 
@@ -69,8 +71,7 @@ public class WowoolSdkTest {
             assertTrue(doc.sentenceCount() >= 1, "At least 1 sentence expected");
             assertTrue(doc.tokenCount() >= 5, "At least 5 tokens expected");
 
-            boolean foundDirecteur = doc.tokens().stream()
-                .anyMatch(t -> "directeur".equalsIgnoreCase(t.literal()));
+            boolean foundDirecteur = doc.tokens().stream().anyMatch(t -> "directeur".equalsIgnoreCase(t.literal()));
             assertTrue(foundDirecteur, "Token 'directeur' should be present");
         }
     }
@@ -101,8 +102,8 @@ public class WowoolSdkTest {
 
             System.out.println("Extracted entities:");
             for (EntitySpan e : doc.entities()) {
-                System.out.printf("  - [%s] '%s' (%d-%d) -> %s%n",
-                    e.uri(), e.literal(), e.beginOffset(), e.endOffset(), e.attributes());
+                System.out.printf("  - [%s] '%s' (%d-%d) -> %s%n", e.uri(), e.literal(), e.beginOffset(), e.endOffset(),
+                        e.attributes());
             }
         }
     }
@@ -126,7 +127,8 @@ public class WowoolSdkTest {
     @DisplayName("Test automated language identification (LanguageIdentifier)")
     void testLanguageIdentification() {
         try (LanguageIdentifier lid = engine.languageIdentifier()) {
-            assertEquals("dutch", lid.identify("Dit is een duidelijke Nederlandstalige tekst over moderne softwareontwikkeling."));
+            assertEquals("dutch",
+                    lid.identify("Dit is een duidelijke Nederlandstalige tekst over moderne softwareontwikkeling."));
             assertEquals("french", lid.identify("Ceci est un document en langue française pour tester la détection."));
             assertEquals("english", lid.identify("This is a comprehensive document written in the English language."));
         }
@@ -153,7 +155,7 @@ public class WowoolSdkTest {
             WowoolDocument doc = customPipeline.analyze(text);
 
             assertTrue(doc.findFirst("EmploymentRelation").isPresent(),
-                "Dynamically compiled rule 'EmploymentRelation' should be detected!");
+                    "Dynamically compiled rule 'EmploymentRelation' should be detected!");
             EntitySpan match = doc.findFirst("EmploymentRelation").get();
             assertEquals("EmploymentRelation", match.uri());
             assertEquals("werkt bij", match.literal());
@@ -234,13 +236,13 @@ public class WowoolSdkTest {
             // Verify all entities match text.substring(begin, end) exactly
             for (EntitySpan e : doc.entities()) {
                 assertEquals(e.literal(), text.substring(e.beginOffset(), e.endOffset()),
-                    "Entity literal must match text slice at offsets: " + e.literal());
+                        "Entity literal must match text slice at offsets: " + e.literal());
             }
 
             // Verify all sentence spans match text.substring(begin, end)
             for (var s : doc.sentences()) {
                 assertEquals(s.text(), text.substring(s.beginOffset(), s.endOffset()),
-                    "Sentence text must match text slice at offsets");
+                        "Sentence text must match text slice at offsets");
             }
         }
     }

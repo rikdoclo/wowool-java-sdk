@@ -22,21 +22,24 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Represents an extracted linguistic entity or semantic concept within a document.
+ * Represents an extracted linguistic entity or semantic concept within a
+ * document.
  *
- * @param uri The concept URI/type identifier (e.g., "Person", "City", "Organization", "Date")
- * @param literal The raw textual representation in the document matching this concept
- * @param beginOffset Character start offset within the document
- * @param endOffset Character end offset within the document
- * @param attributes Extracted attributes (e.g. canonical value, gender, components)
+ * @param uri
+ *            The concept URI/type identifier (e.g., "Person", "City",
+ *            "Organization", "Date")
+ * @param literal
+ *            The raw textual representation in the document matching this
+ *            concept
+ * @param beginOffset
+ *            Character start offset within the document
+ * @param endOffset
+ *            Character end offset within the document
+ * @param attributes
+ *            Extracted attributes (e.g. canonical value, gender, components)
  */
-public record EntitySpan(
-    String uri,
-    String literal,
-    int beginOffset,
-    int endOffset,
-    Map<String, Object> attributes
-) implements Annotation {
+public record EntitySpan(String uri, String literal, int beginOffset, int endOffset,
+        Map<String, Object> attributes) implements Annotation {
     public EntitySpan {
         if (attributes == null) {
             attributes = Collections.emptyMap();
@@ -57,7 +60,8 @@ public record EntitySpan(
     /**
      * Checks if this entity matches the specified URI (case-insensitive).
      *
-     * @param expectedUri The URI to compare against
+     * @param expectedUri
+     *            The URI to compare against
      * @return true if matching, false otherwise
      */
     public boolean is(String expectedUri) {
@@ -65,8 +69,8 @@ public record EntitySpan(
     }
 
     /**
-     * Retrieves the canonical/normalized representation of this entity if present (from attribute "canonical"),
-     * or falls back to the surface literal text.
+     * Retrieves the canonical/normalized representation of this entity if present
+     * (from attribute "canonical"), or falls back to the surface literal text.
      *
      * @return Normalized canonical representation or raw literal
      */
@@ -84,7 +88,8 @@ public record EntitySpan(
     /**
      * Checks if a specific attribute is present in this entity's attributes.
      *
-     * @param key Attribute key name
+     * @param key
+     *            Attribute key name
      * @return true if present, false otherwise
      */
     public boolean hasAttribute(String key) {
@@ -92,9 +97,11 @@ public record EntitySpan(
     }
 
     /**
-     * Retrieves the first string representation of an attribute, handling both scalar and array attributes.
+     * Retrieves the first string representation of an attribute, handling both
+     * scalar and array attributes.
      *
-     * @param key Attribute key name
+     * @param key
+     *            Attribute key name
      * @return Optional containing the string value if present
      */
     public Optional<String> firstAttribute(String key) {
@@ -109,9 +116,11 @@ public record EntitySpan(
     }
 
     /**
-     * Retrieves an attribute as a list of strings, safely converting scalar values to a singleton list.
+     * Retrieves an attribute as a list of strings, safely converting scalar values
+     * to a singleton list.
      *
-     * @param key Attribute key name
+     * @param key
+     *            Attribute key name
      * @return Immutable list of string values, or empty list if not present
      */
     public List<String> getListAttribute(String key) {
@@ -128,8 +137,10 @@ public record EntitySpan(
     /**
      * Retrieves an attribute by key, casting to the expected type.
      *
-     * @param key Attribute key name
-     * @param <T> Expected return type
+     * @param key
+     *            Attribute key name
+     * @param <T>
+     *            Expected return type
      * @return Attribute value or null if not present
      */
     @SuppressWarnings("unchecked")
