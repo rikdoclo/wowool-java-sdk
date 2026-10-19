@@ -82,7 +82,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.5.2</version>
+        <version>3.6.0</version>
         <configuration>
           <!-- Panama Foreign Function & Memory API requires native access permission -->
           <argLine>--enable-native-access=ALL-UNNAMED,com.wowool.sdk</argLine>
