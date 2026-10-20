@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-10-20
+
+### Overview
+
+Wowool Java SDK v2.1.0 is a feature and reliability release introducing zero-configuration on-demand native engine and language model provisioning, enterprise Kubernetes (K8s) OCI container image pre-baking tooling, deterministic model version pinning, granular model lifecycle management, and live model introspection APIs.
+
+This release completely removes the need for Python, pip, or virtual environment workarounds to acquire native binaries and models. All distribution packages are streamed directly as standard ZIP archives over HTTPS via pure Java standard libraries (`java.net.http` and `java.util.zip`).
+
+---
+
+### Added
+
+#### 1. Zero-Configuration Native Engine Provisioning (`com.wowool.sdk.installer`)
+- **Automated First-Run Bootstrapping (`WowoolInstaller.installIfNeeded`):** When `WowoolEngine.create()` runs and the local engine directory (`~/.wowool`) is absent, the SDK automatically downloads and unpacks the appropriate platform binaries (`libwowool.*`) and default language models directly into `~/.wowool`.
+- **Pure Java Implementation:** 100% standard Java 22+ utilizing `java.net.http.HttpClient` and streaming `java.util.zip.ZipInputStream`. No Python, pip, virtual environments, or build tools are required.
+- **JPMS Module Export:** Added `requires java.net.http` and `exports com.wowool.sdk.installer` to `module-info.java`.
+
+#### 2. Production Kubernetes & Enterprise OCI Container Pre-Baking
+- **Deterministic Container Builds (`scripts/install-wowool.sh` & CLI):** Standalone shell script and Java CLI entry point (`WowoolInstaller.main`) allowing Dockerfile builds to pre-bake Linux native binaries and models into `/opt/wowool` in a single command.
+- **Offline Immutable Pod Deployments:** Kubernetes pods run fully self-contained and offline with sub-millisecond cold starts, eliminating runtime network egress and volume attachment overhead.
+
+#### 3. Deterministic Model Version Pinning (`dutch@3.2.8`)
+- **Explicit Version Syntax (`PackageSpec`):** Both Java APIs and CLI tools support exact version pinning (e.g. `dutch@3.2.8` or `wowool-dutch==3.2.8`) to guarantee reproducibility and prevent model drift in production environments.
+- Defaults to the latest stable release on PyPI when a version tag is omitted.
+
+#### 4. Granular Model Lifecycle & Updates
+- **Model-Only Updates (`WowoolInstaller.installModels`):** Update linguistic domain models (`~8 MB`) without downloading or modifying the heavy C++ native library bundle (`~80 MB`) using the `--models-only` flag.
+- **Runtime On-Demand Language Provisioning:** Calling `engine.pipeline("english", ...)` dynamically detects missing language assets in `wowoolRoot`, retrieves the required language package on the fly, and initializes the pipeline without restarting the application.
+
+#### 5. Linguistic Model & Domain Introspection API (`com.wowool.sdk.WowoolEngine`)
+- **`engine.availableLanguages()`:** Discovers all installed language models in `wowoolRoot` with formatted versions (e.g., `["dutch (v3.2.8)"]`).
+- **`engine.availableDomains(language)`:** Discovers all available binary `.dom` domains for a given language (e.g., `["entity (v3.2.8)", "anonymizer (v3.2.8)"]`).
+- **Path Discovery Helpers:** Added `WowoolPaths.listAvailableLanguages(Path)` and `WowoolPaths.listAvailableDomains(Path, String)`.
+
+---
+
+### Fixed & Hardened
+
+- **CI / Spotless Build Stability:** Pinned Spotless Eclipse JDT formatter to version `4.34` with an explicit fallback P2 mirror (`ftp.osuosl.org`), permanently eliminating transient `SocketTimeoutException` build failures from `download.eclipse.org`.
+- **Maven Network Resilience:** Configured Maven HTTP wagon and Aether automatic retry handlers (`retryHandler.count=3`) in GitHub Actions workflows to withstand transient CDN latency.
+- **Runner Concurrency:** Added `concurrency: cancel-in-progress: true` in GitHub Actions CI to terminate superseded matrix runs automatically.
+- **Dependabot Protection:** Configured `.github/dependabot.yml` ignore rules to protect pinned Maven plugins required by JitPack (`compiler`, `surefire`, `source`).
+
+---
+
 ## [2.0.0] - 2026-10-18
 
 ### Overview
