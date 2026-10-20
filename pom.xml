@@ -126,7 +126,15 @@
         <version>2.44.3</version>
         <configuration>
           <java>
-            <eclipse />
+            <eclipse>
+              <version>4.34</version>
+              <p2Mirrors>
+                <p2Mirror>
+                  <prefix>https://download.eclipse.org/</prefix>
+                  <url>https://ftp.osuosl.org/pub/eclipse/</url>
+                </p2Mirror>
+              </p2Mirrors>
+            </eclipse>
             <indent>
               <spaces>true</spaces>
               <spacesPerTab>4</spacesPerTab>

@@ -10,6 +10,10 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build & Test (Java ${{ matrix.java-version }} on ${{ matrix.os }})
@@ -25,14 +29,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK ${{ matrix.java-version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'temurin'
           cache: 'maven'
 
       - name: Build and Test with Maven
-        run: mvn -B clean verify --file pom.xml
+        run: mvn -B clean verify --file pom.xml -Dmaven.wagon.http.retryHandler.count=3 -Daether.connector.http.retryHandler.count=3 -Dhttp.keepAlive=false
         env:
           WOWOOL_SDK_KEY: ${{ secrets.WOWOOL_SDK_KEY }}
 
