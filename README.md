@@ -58,7 +58,7 @@ Add the dependency to your project's `pom.xml` (or build tool):
 <dependency>
     <groupId>com.wowool</groupId>
     <artifactId>wowool-sdk-java</artifactId>
-    <version>2.0.2</version>
+    <version>2.1.0</version>
 </dependency>
 ```
 
@@ -72,7 +72,7 @@ The SDK provides automated on-demand provisioning for developer workstations:
 To manually pre-download or install specific language models:
 ```bash
 # Using Java:
-java -cp wowool-sdk-java-2.0.2.jar com.wowool.sdk.installer.WowoolInstaller --languages=dutch
+java -cp wowool-sdk-java-2.1.0.jar com.wowool.sdk.installer.WowoolInstaller --languages=dutch
 
 # Or using the standalone shell script:
 ./scripts/install-wowool.sh --target=$HOME/.wowool --languages=dutch
