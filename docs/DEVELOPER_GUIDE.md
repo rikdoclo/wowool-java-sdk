@@ -670,15 +670,15 @@ In this pattern, the native shared libraries (`libwowool.so`) and required `.lan
 ```Containerfile
 # Self-contained enterprise production image
 FROM eclipse-temurin:25-jre-noble
-RUN apt-get update && apt-get install -y --no-install-recommends libicu-dev && rm -rf /var/lib/apt/lists/*
 
-# Copy native Wowool runtime & models directly into image
-COPY ./native/lib/linux-x86_64 /opt/wowool/lib
-COPY ./native/wowool          /opt/wowool/models
+# Pre-bake native Wowool runtime & models directly into image (Zero Python required)
+COPY ./scripts/install-wowool.sh /tmp/install-wowool.sh
+RUN /tmp/install-wowool.sh --target=/opt/wowool --platform=linux-x86_64 --languages=dutch && rm /tmp/install-wowool.sh
+
 COPY ./target/app.jar         /app/app.jar
 
 ENV WOWOOL_DYLIB_DIR=/opt/wowool/lib
-ENV WOWOOL_ROOT=/opt/wowool/models
+ENV WOWOOL_ROOT=/opt/wowool
 
 ENTRYPOINT ["java", "--enable-native-access=ALL-UNNAMED", "-jar", "/app/app.jar"]
 ```

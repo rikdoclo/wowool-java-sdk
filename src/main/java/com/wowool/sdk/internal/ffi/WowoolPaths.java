@@ -76,15 +76,18 @@ public final class WowoolPaths {
     public static List<String> expectedLibraryNames() {
         List<String> names = new ArrayList<>();
         if (isMac()) {
+            names.add("libwowool.3.4.1.dylib");
             names.add("libwowool.3.3.2.dylib");
             names.add("libwowool.dylib");
             names.add("libwowool.so");
         } else if (isLinux()) {
+            names.add("libwowool.so.3.4.1");
             names.add("libwowool.so.3.3.2");
             names.add("libwowool.3.3.2.so");
             names.add("libwowool.so");
             names.add("libwowool.dylib");
         } else {
+            names.add("libwowool.3.4.1.dylib");
             names.add("libwowool.3.3.2.dylib");
             names.add("libwowool.dylib");
             names.add("libwowool.so");

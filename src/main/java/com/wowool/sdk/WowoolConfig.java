@@ -61,8 +61,46 @@ public record WowoolConfig(String licenseKey, Path dylibDir, Path wowoolRoot) {
 
         public WowoolConfig build() {
             String key = (licenseKey != null && !licenseKey.isBlank()) ? licenseKey : WowoolPaths.resolveLicenseKey();
-            Path root = (wowoolRoot != null) ? wowoolRoot : WowoolPaths.resolveWowoolRoot();
-            Path dylibs = (dylibDir != null) ? dylibDir : WowoolPaths.resolveDylibDir();
+
+            Path root = wowoolRoot;
+            Path dylibs = dylibDir;
+
+            if (root == null || dylibs == null) {
+                try {
+                    if (root == null) {
+                        root = WowoolPaths.resolveWowoolRoot();
+                    }
+                    if (dylibs == null) {
+                        dylibs = WowoolPaths.resolveDylibDir();
+                    }
+                } catch (WowoolException ex) {
+                    boolean autoInstall = Boolean.parseBoolean(System.getProperty("wowool.auto.install",
+                            System.getenv().getOrDefault("WOWOOL_AUTO_INSTALL", "true")));
+
+                    // Skip dynamic network download in headless CI environments unless explicitly
+                    // requested
+                    boolean isCi = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null;
+                    boolean allowInCi = Boolean.parseBoolean(System.getProperty("wowool.ci.install", "false"));
+
+                    if (autoInstall && (!isCi || allowInCi)) {
+                        try {
+                            com.wowool.sdk.installer.WowoolInstaller.installIfNeeded();
+                            if (root == null) {
+                                root = WowoolPaths.resolveWowoolRoot();
+                            }
+                            if (dylibs == null) {
+                                dylibs = WowoolPaths.resolveDylibDir();
+                            }
+                        } catch (Exception installEx) {
+                            throw new WowoolException(ex.getMessage() + "\nAuto-installation attempted but failed: "
+                                    + installEx.getMessage(), ex);
+                        }
+                    } else {
+                        throw ex;
+                    }
+                }
+            }
+
             return new WowoolConfig(key, dylibs, root);
         }
     }

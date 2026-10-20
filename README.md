@@ -50,35 +50,60 @@ This SDK connects directly to the underlying C++ runtime (`libwowool.3.3.2.dylib
 
 ## Installation & Getting Started
 
-### 1. Build & Install Locally from GitHub
+### 1. Add Dependency to Your Project
 
-Clone the repository and install the SDK into your local Maven repository (`~/.m2/repository`):
-
-```bash
-git clone https://github.com/rikdoclo/wowool-java-sdk.git
-cd wowool-java-sdk
-mvn clean install
-```
-
-### 2. Add Dependency to Your Project
-
-Add the dependency to your project's `pom.xml`:
+Add the dependency to your project's `pom.xml` (or build tool):
 
 ```xml
 <dependency>
     <groupId>com.wowool</groupId>
     <artifactId>wowool-sdk-java</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.2</version>
 </dependency>
 ```
 
-### 3. JVM Native Access Flag
+### 2. Zero-Configuration Native Engine Provisioning (Developers & Local VM)
 
-When running your Java application, Project Panama requires the native access flag:
+The SDK provides automated on-demand provisioning for developer workstations:
+* **No Python, pip, or virtual environment is ever required.**
+* When `WowoolEngine.create()` runs for the first time, if native libraries or language models are absent, the SDK automatically downloads and unpacks the appropriate native engine (`libwowool.*`) and models directly into `~/.wowool`.
+* Once installed, all subsequent starts load instantaneously in sub-millisecond time.
 
+To manually pre-download or install specific language models:
 ```bash
-java --enable-native-access=ALL-UNNAMED -jar your-application.jar
+# Using Java:
+java -cp wowool-sdk-java-2.0.2.jar com.wowool.sdk.installer.WowoolInstaller --languages=dutch
+
+# Or using the standalone shell script:
+./scripts/install-wowool.sh --target=$HOME/.wowool --languages=dutch
 ```
+
+### 3. Production Kubernetes & Enterprise OCI Container Images (Pre-Baked)
+
+In enterprise production Kubernetes environments, pods operate strictly immutable with zero external internet access at runtime. Native binaries and models should be pre-baked into the container image layer during `docker build`:
+
+```dockerfile
+FROM eclipse-temurin:25-jre
+
+# Pre-bake Linux native binaries and models into /opt/wowool (Zero Python required)
+RUN ./scripts/install-wowool.sh --target=/opt/wowool --platform=linux-x86_64 --languages=dutch
+
+# Configure standard Wowool paths for offline pod execution
+ENV WOWOOL_ROOT=/opt/wowool
+ENV WOWOOL_DYLIB_DIR=/opt/wowool/lib
+
+COPY target/my-service.jar /app/my-service.jar
+
+# Run with Project Panama native access permission
+ENTRYPOINT ["java", "--enable-native-access=ALL-UNNAMED", "-jar", "/app/my-service.jar"]
+```
+
+### 4. Commercial License Key Configuration
+
+Set your commercial Wowool SDK key via any standard mechanism:
+1. Environment Variable: `export WOWOOL_SDK_KEY="your-license-key"` (or Kubernetes Secret)
+2. Java System Property: `-Dwowool.license.key="your-license-key"`
+3. User Configuration: `~/.config/wowool/WOWOOL_SDK_KEY`
 
 ---
 

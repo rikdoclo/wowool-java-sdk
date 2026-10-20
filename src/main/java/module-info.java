@@ -20,9 +20,11 @@
  */
 module com.wowool.sdk {
     requires java.base;
+    requires java.net.http;
     requires com.fasterxml.jackson.databind;
 
     exports com.wowool.sdk;
+    exports com.wowool.sdk.installer;
     exports com.wowool.sdk.model;
     exports com.wowool.sdk.rule;
 }
