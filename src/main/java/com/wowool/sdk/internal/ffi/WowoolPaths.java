@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /**
@@ -377,6 +378,10 @@ public final class WowoolPaths {
         if (Files.isDirectory(lxware)) {
             searchDirs.add(lxware);
         }
+        Path modelsLxware = wowoolRoot.resolve("models/lxware/wowool");
+        if (Files.isDirectory(modelsLxware)) {
+            searchDirs.add(modelsLxware);
+        }
         if (Files.isDirectory(wowoolRoot)) {
             searchDirs.add(wowoolRoot);
         }
@@ -432,6 +437,93 @@ public final class WowoolPaths {
         sb.append("  2. Set environment variable:     export WOWOOL_DYLIB_DIR=/path/to/wowool/lib\n");
         sb.append("  3. Install Wowool C-ABI dylibs:  mkdir -p ~/.wowool/lib && cp libwowool* ~/.wowool/lib/\n");
         return sb.toString();
+    }
+
+    /**
+     * Lists all available language models discovered in the configured Wowool root.
+     *
+     * @param wowoolRoot
+     *            Directory containing linguistic models
+     * @return List of language names or formatted version strings (e.g., "dutch
+     *         (v3.2.7)")
+     */
+    public static List<String> listAvailableLanguages(Path wowoolRoot) {
+        if (wowoolRoot == null) {
+            return Collections.emptyList();
+        }
+        Set<String> languages = new TreeSet<>();
+        List<Path> searchDirs = getModelSearchDirectories(wowoolRoot);
+
+        for (Path dir : searchDirs) {
+            if (!Files.isDirectory(dir)) {
+                continue;
+            }
+            try (Stream<Path> stream = Files.list(dir)) {
+                stream.filter(p -> p.getFileName().toString().endsWith(".language")).forEach(p -> {
+                    String fn = p.getFileName().toString();
+                    String base = fn.substring(0, fn.length() - ".language".length());
+                    if (base.contains("@")) {
+                        String[] parts = base.split("@", 2);
+                        languages.add(parts[0] + " (v" + parts[1] + ")");
+                    } else {
+                        languages.add(base);
+                    }
+                });
+            } catch (IOException ignored) {
+            }
+        }
+        return List.copyOf(languages);
+    }
+
+    /**
+     * Lists all available domain models (.dom) for a given language discovered in
+     * the configured Wowool root.
+     *
+     * @param wowoolRoot
+     *            Directory containing linguistic models
+     * @param language
+     *            Language prefix to filter by (e.g. "dutch")
+     * @return List of domain names or formatted version strings (e.g., "entity
+     *         (v3.2.7)")
+     */
+    public static List<String> listAvailableDomains(Path wowoolRoot, String language) {
+        if (wowoolRoot == null || language == null || language.isBlank()) {
+            return Collections.emptyList();
+        }
+        Set<String> domains = new TreeSet<>();
+        List<Path> searchDirs = getModelSearchDirectories(wowoolRoot);
+        String prefix = language.trim().toLowerCase(Locale.ROOT) + "-";
+
+        for (Path dir : searchDirs) {
+            if (!Files.isDirectory(dir)) {
+                continue;
+            }
+            try (Stream<Path> stream = Files.list(dir)) {
+                stream.filter(p -> p.getFileName().toString().endsWith(".dom")).forEach(p -> {
+                    String fn = p.getFileName().toString();
+                    String base = fn.substring(0, fn.length() - ".dom".length());
+                    if (base.startsWith(prefix)) {
+                        String sub = base.substring(prefix.length());
+                        if (sub.contains("@")) {
+                            String[] parts = sub.split("@", 2);
+                            domains.add(parts[0] + " (v" + parts[1] + ")");
+                        } else {
+                            domains.add(sub);
+                        }
+                    } else if (!base.contains("-")) {
+                        // Unprefixed global domain, e.g. entity.dom or entity@3.2.8.dom
+                        if (base.contains("@")) {
+                            String[] parts = base.split("@", 2);
+                            domains.add(parts[0] + " (v" + parts[1] + ")");
+                        } else {
+                            domains.add(base);
+                        }
+                    }
+                });
+            } catch (IOException ignored) {
+            }
+        }
+        return List.copyOf(domains);
     }
 
     private static String buildModelRootNotFoundMessage(List<String> probed) {

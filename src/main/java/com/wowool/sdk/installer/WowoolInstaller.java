@@ -42,8 +42,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Zero-configuration on-demand installer and container image pre-bake utility
- * for native Wowool C++ binaries and language domain models.
+ * Zero-configuration on-demand installer, version pinner, and container image
+ * pre-bake utility for native Wowool C++ binaries and language domain models.
  * <p>
  * Fetches standardized, official distribution packages via HTTPS directly from
  * PyPI releases (which are standard ZIP archives per PEP 427) without requiring
@@ -76,6 +76,52 @@ public final class WowoolInstaller {
         this.quiet = quiet;
         this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(CONNECT_TIMEOUT)
                 .followRedirects(HttpClient.Redirect.NORMAL).build();
+    }
+
+    /**
+     * Specification of a Wowool package and optional pinned version.
+     *
+     * @param name
+     *            Package name (e.g., "wowool-dutch", "wowool-sdk-cpp")
+     * @param version
+     *            Optional pinned version string (e.g., "3.2.8") or null for latest
+     */
+    public record PackageSpec(String name, String version) {
+
+        /**
+         * Parses a user specification such as "dutch", "dutch@3.2.8",
+         * "wowool-dutch==3.2.8".
+         *
+         * @param spec
+         *            Raw input specification
+         * @param defaultPrefix
+         *            Prefix to add if absent (e.g. "wowool-")
+         * @return Parsed PackageSpec instance
+         */
+        public static PackageSpec parse(String spec, String defaultPrefix) {
+            Objects.requireNonNull(spec, "spec must not be null");
+            String clean = spec.trim().toLowerCase(Locale.ROOT);
+            String rawName;
+            String ver = null;
+
+            if (clean.contains("@")) {
+                String[] parts = clean.split("@", 2);
+                rawName = parts[0].trim();
+                ver = parts[1].trim();
+            } else if (clean.contains("==")) {
+                String[] parts = clean.split("==", 2);
+                rawName = parts[0].trim();
+                ver = parts[1].trim();
+            } else {
+                rawName = clean;
+            }
+
+            String pkgName = rawName;
+            if (defaultPrefix != null && !pkgName.startsWith(defaultPrefix)) {
+                pkgName = defaultPrefix + pkgName;
+            }
+            return new PackageSpec(pkgName, (ver != null && !ver.isBlank()) ? ver : null);
+        }
     }
 
     /**
@@ -159,51 +205,113 @@ public final class WowoolInstaller {
      *            Target platform architecture (e.g., "auto", "darwin-aarch64",
      *            "linux-x86_64", "linux-aarch64")
      * @param languages
-     *            List of language packages to provision (e.g., ["dutch"])
+     *            List of language packages or pinned specs (e.g., ["dutch",
+     *            "english@3.2.3"])
      * @return Target installation directory
      */
     public Path install(Path targetDir, String platform, List<String> languages) {
         Objects.requireNonNull(targetDir, "targetDir must not be null");
         String resolvedPlatform = resolvePlatform(platform);
 
-        log(String.format("Preparing Wowool installation at: %s [Platform: %s]", targetDir, resolvedPlatform));
+        log(String.format("Preparing full Wowool installation at: %s [Platform: %s]", targetDir, resolvedPlatform));
 
         try {
             Path libDir = targetDir.resolve("lib");
             Path binDir = targetDir.resolve("bin");
-            Path modelsDir = targetDir.resolve("models/lxware/wowool");
-            Path lxwareRoot = targetDir.resolve("models/lxware");
-
             Files.createDirectories(libDir);
             Files.createDirectories(binDir);
-            Files.createDirectories(modelsDir);
 
             // 1. Download and extract C++ native library bundle (wowool-sdk-cpp)
             installCppBundle(resolvedPlatform, libDir, binDir);
 
-            // 2. Download and extract Generic language support (wowool-generic)
-            installGenericModels(lxwareRoot);
-
-            // 3. Download and extract Language Identification model (wowool-lid)
-            installLidModel(lxwareRoot);
-
-            // 4. Download and extract requested language packages (e.g. wowool-dutch)
-            if (languages != null) {
-                for (String lang : languages) {
-                    if (lang != null && !lang.isBlank()) {
-                        installLanguagePackage(lang.trim().toLowerCase(Locale.ROOT), lxwareRoot);
-                    }
-                }
-            }
-
-            // 5. Establish convenience symbolic link: <target>/lxware -> models/lxware
-            createSymlinkSafe(targetDir.resolve("lxware"), targetDir.relativize(lxwareRoot));
+            // 2. Download and extract linguistic models
+            installModels(targetDir, languages);
 
             log(String.format("Successfully installed Wowool native engine and models to %s", targetDir));
             return targetDir;
 
         } catch (Exception ex) {
             throw new WowoolException("Failed to install Wowool engine and language assets: " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Installs or updates linguistic models only (generic, LID, and language
+     * domains), leaving C++ native libraries untouched.
+     *
+     * @param targetDir
+     *            Target installation root (e.g., {@code ~/.wowool} or
+     *            {@code /opt/wowool})
+     * @param languages
+     *            List of language packages or pinned specs (e.g. ["dutch@3.2.8"])
+     * @return Target installation directory
+     */
+    public Path installModels(Path targetDir, List<String> languages) {
+        Objects.requireNonNull(targetDir, "targetDir must not be null");
+        log(String.format("Installing/updating linguistic models in: %s", targetDir));
+
+        try {
+            Path lxwareRoot = targetDir.resolve("models/lxware");
+            Files.createDirectories(targetDir.resolve("models/lxware/wowool"));
+
+            // 1. Download and extract Generic language support (wowool-generic)
+            installGenericModels(lxwareRoot);
+
+            // 2. Download and extract Language Identification model (wowool-lid)
+            installLidModel(lxwareRoot);
+
+            // 3. Download and extract requested language packages (e.g. wowool-dutch)
+            if (languages != null) {
+                for (String langSpec : languages) {
+                    if (langSpec != null && !langSpec.isBlank()) {
+                        PackageSpec pkg = PackageSpec.parse(langSpec, "wowool-");
+                        installLanguagePackage(pkg, lxwareRoot);
+                    }
+                }
+            }
+
+            // 4. Establish convenience symbolic link: <target>/lxware -> models/lxware
+            createSymlinkSafe(targetDir.resolve("lxware"), targetDir.relativize(lxwareRoot));
+            return targetDir;
+
+        } catch (Exception ex) {
+            throw new WowoolException("Failed to install Wowool linguistic models: " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * On-demand provisioning of a single language model into an active Wowool root.
+     *
+     * @param wowoolRoot
+     *            Active Wowool root directory
+     * @param languageSpec
+     *            Language identifier or versioned spec (e.g., "english",
+     *            "dutch@3.2.8")
+     * @return Path to resolved lxware models directory
+     */
+    public static Path installLanguage(Path wowoolRoot, String languageSpec) {
+        Objects.requireNonNull(wowoolRoot, "wowoolRoot must not be null");
+        Objects.requireNonNull(languageSpec, "languageSpec must not be null");
+
+        Path lxwareRoot;
+        if (Files.isDirectory(wowoolRoot.resolve("lxware/wowool"))) {
+            lxwareRoot = wowoolRoot.resolve("lxware");
+        } else if (Files.isDirectory(wowoolRoot.resolve("models/lxware/wowool"))) {
+            lxwareRoot = wowoolRoot.resolve("models/lxware");
+        } else if (wowoolRoot.endsWith("models")) {
+            lxwareRoot = wowoolRoot.resolve("lxware");
+        } else {
+            lxwareRoot = wowoolRoot.resolve("models/lxware");
+        }
+
+        try {
+            Files.createDirectories(lxwareRoot.resolve("wowool"));
+            PackageSpec pkg = PackageSpec.parse(languageSpec, "wowool-");
+            new WowoolInstaller().installLanguagePackage(pkg, lxwareRoot);
+            return lxwareRoot;
+        } catch (Exception ex) {
+            throw new WowoolException("Failed to on-demand install language '" + languageSpec + "': " + ex.getMessage(),
+                    ex);
         }
     }
 
@@ -219,7 +327,7 @@ public final class WowoolInstaller {
             platformMatcher = fn -> fn.contains("manylinux") && fn.contains("x86_64");
         }
 
-        String wheelUrl = resolveWheelUrl("wowool-sdk-cpp", platformMatcher);
+        String wheelUrl = resolveWheelUrl(new PackageSpec("wowool-sdk-cpp", null), platformMatcher);
         log("Downloading native binary package from: " + wheelUrl);
 
         try (InputStream in = openHttpStream(wheelUrl);
@@ -257,20 +365,22 @@ public final class WowoolInstaller {
 
     private void installGenericModels(Path lxwareRoot) throws IOException, InterruptedException {
         log("Resolving package: wowool-generic...");
-        String wheelUrl = resolveWheelUrl("wowool-generic", fn -> fn.contains("any") || fn.endsWith(".whl"));
+        String wheelUrl = resolveWheelUrl(new PackageSpec("wowool-generic", null),
+                fn -> fn.contains("any") || fn.endsWith(".whl"));
         extractModelWheel(wheelUrl, lxwareRoot);
     }
 
     private void installLidModel(Path lxwareRoot) throws IOException, InterruptedException {
         log("Resolving package: wowool-lid...");
-        String wheelUrl = resolveWheelUrl("wowool-lid", fn -> fn.contains("any") || fn.endsWith(".whl"));
+        String wheelUrl = resolveWheelUrl(new PackageSpec("wowool-lid", null),
+                fn -> fn.contains("any") || fn.endsWith(".whl"));
         extractModelWheel(wheelUrl, lxwareRoot);
     }
 
-    private void installLanguagePackage(String language, Path lxwareRoot) throws IOException, InterruptedException {
-        String packageName = "wowool-" + language;
-        log("Resolving language package: " + packageName + "...");
-        String wheelUrl = resolveWheelUrl(packageName, fn -> fn.contains("any") || fn.endsWith(".whl"));
+    private void installLanguagePackage(PackageSpec pkg, Path lxwareRoot) throws IOException, InterruptedException {
+        log("Resolving language package: " + pkg.name() + " (version: "
+                + (pkg.version() != null ? pkg.version() : "latest") + ")...");
+        String wheelUrl = resolveWheelUrl(pkg, fn -> fn.contains("any") || fn.endsWith(".whl"));
         extractModelWheel(wheelUrl, lxwareRoot);
     }
 
@@ -298,16 +408,21 @@ public final class WowoolInstaller {
         }
     }
 
-    private String resolveWheelUrl(String packageName, Predicate<String> matcher)
+    private String resolveWheelUrl(PackageSpec pkg, Predicate<String> matcher)
             throws IOException, InterruptedException {
-        String apiUrl = System.getProperty("wowool.pypi.url", DEFAULT_PYPI_API) + "/" + packageName + "/json";
+        String base = System.getProperty("wowool.pypi.url", DEFAULT_PYPI_API);
+        String apiUrl = (pkg.version() != null)
+                ? String.format("%s/%s/%s/json", base, pkg.name(), pkg.version())
+                : String.format("%s/%s/json", base, pkg.name());
+
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(apiUrl)).timeout(REQUEST_TIMEOUT)
                 .header("User-Agent", "wowool-java-sdk-installer").GET().build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
-            throw new WowoolException(String.format("PyPI package resolution failed for '%s' with HTTP status %d",
-                    packageName, response.statusCode()));
+            throw new WowoolException(
+                    String.format("PyPI package resolution failed for '%s' (version: %s) with HTTP status %d",
+                            pkg.name(), (pkg.version() != null ? pkg.version() : "latest"), response.statusCode()));
         }
 
         JsonNode root = MAPPER.readTree(response.body());
@@ -321,8 +436,8 @@ public final class WowoolInstaller {
             }
         }
 
-        throw new WowoolException(String.format(
-                "No matching .whl release found for package '%s' satisfying target platform filters", packageName));
+        throw new WowoolException(String.format("No matching .whl release found for package '%s' (version: %s)",
+                pkg.name(), (pkg.version() != null ? pkg.version() : "latest")));
     }
 
     private InputStream openHttpStream(String url) throws IOException, InterruptedException {
@@ -369,9 +484,8 @@ public final class WowoolInstaller {
             }
             Files.createSymbolicLink(link, target);
         } catch (Exception ignored) {
-            // On operating systems without symlink privileges (e.g. non-developer mode
-            // Windows),
-            // copy if symlink creation is denied
+            // On operating systems without symlink privileges, copy if symlink creation is
+            // denied
             try {
                 Path resolvedTarget = link.getParent() != null ? link.getParent().resolve(target) : target;
                 if (Files.isRegularFile(resolvedTarget)) {
@@ -420,8 +534,10 @@ public final class WowoolInstaller {
      * } : Target directory (default: {@code ~/.wowool} or {@code /opt/wowool})</li>
      * <li>{@code --platform=<plat>} : Target platform ("auto", "linux-x86_64",
      * "linux-aarch64", "darwin-aarch64")</li>
-     * <li>{@code --languages=<l1,l2>} : Comma-separated list of languages (default:
-     * "dutch")</li>
+     * <li>{@code --languages=<l1,l2>} : Comma-separated list of languages or
+     * versioned specs (e.g. "dutch@3.2.8")</li>
+     * <li>{@code --models-only} : Install/update models only, skipping C++ binary
+     * download</li>
      * <li>{@code --quiet} : Suppress logging output</li>
      * </ul>
      *
@@ -432,6 +548,7 @@ public final class WowoolInstaller {
         Path targetDir = defaultInstallDir();
         String platform = "auto";
         List<String> languages = new ArrayList<>(List.of("dutch"));
+        boolean modelsOnly = false;
         boolean quiet = false;
 
         for (String arg : args) {
@@ -446,12 +563,18 @@ public final class WowoolInstaller {
                         languages.add(lang.trim());
                     }
                 }
+            } else if (arg.equals("--models-only") || arg.equals("--update-models")) {
+                modelsOnly = true;
             } else if (arg.equals("--quiet") || arg.equals("-q")) {
                 quiet = true;
             }
         }
 
         WowoolInstaller installer = new WowoolInstaller(quiet);
-        installer.install(targetDir, platform, languages);
+        if (modelsOnly) {
+            installer.installModels(targetDir, languages);
+        } else {
+            installer.install(targetDir, platform, languages);
+        }
     }
 }

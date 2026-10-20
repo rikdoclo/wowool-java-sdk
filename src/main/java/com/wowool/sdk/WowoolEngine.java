@@ -97,12 +97,52 @@ public final class WowoolEngine implements AutoCloseable {
     public WowoolPipeline createPipeline(String language, List<String> domains) {
         ensureOpen();
 
-        Path langFile = WowoolPaths.resolveLanguageFile(config.wowoolRoot(), language)
-                .orElseThrow(() -> new WowoolException("Language file for '" + language + "' not found under "
-                        + config.wowoolRoot() + ". Probed directories: "
-                        + WowoolPaths.getModelSearchDirectories(config.wowoolRoot())));
+        java.util.Optional<Path> langFileOpt = WowoolPaths.resolveLanguageFile(config.wowoolRoot(), language);
+        if (langFileOpt.isEmpty()) {
+            boolean autoInstall = Boolean.parseBoolean(System.getProperty("wowool.auto.install",
+                    System.getenv().getOrDefault("WOWOOL_AUTO_INSTALL", "true")));
+            boolean isCi = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null;
+            boolean allowInCi = Boolean.parseBoolean(System.getProperty("wowool.ci.install", "false"));
+
+            if (autoInstall && (!isCi || allowInCi)) {
+                try {
+                    com.wowool.sdk.installer.WowoolInstaller.installLanguage(config.wowoolRoot(), language);
+                    langFileOpt = WowoolPaths.resolveLanguageFile(config.wowoolRoot(), language);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        Path langFile = langFileOpt.orElseThrow(
+                () -> new WowoolException("Language file for '" + language + "' not found under " + config.wowoolRoot()
+                        + ". Probed directories: " + WowoolPaths.getModelSearchDirectories(config.wowoolRoot())));
 
         return WowoolPipeline.create(this, langFile, domains);
+    }
+
+    /**
+     * Lists all available language models discovered in the configured Wowool root
+     * directory.
+     *
+     * @return List of language identifiers (e.g., "dutch (v3.2.7)")
+     */
+    public List<String> availableLanguages() {
+        ensureOpen();
+        return WowoolPaths.listAvailableLanguages(config.wowoolRoot());
+    }
+
+    /**
+     * Lists all available domain models (.dom) for a given language discovered in
+     * the configured Wowool root.
+     *
+     * @param language
+     *            Language name to inspect (e.g. "dutch")
+     * @return List of domain identifiers (e.g., "entity (v3.2.7)", "anonymizer
+     *         (v3.2.7)")
+     */
+    public List<String> availableDomains(String language) {
+        ensureOpen();
+        return WowoolPaths.listAvailableDomains(config.wowoolRoot(), language);
     }
 
     /**

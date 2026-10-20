@@ -16,15 +16,19 @@
 
 package com.wowool.sdk.installer;
 
+import com.wowool.sdk.internal.ffi.WowoolPaths;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WowoolInstallerTest {
@@ -67,5 +71,52 @@ class WowoolInstallerTest {
         Files.createFile(libDir.resolve("libwowool.dylib"));
 
         assertTrue(WowoolInstaller.isInstalled(tempDir), "Properly structured directory must report as installed");
+    }
+
+    @Test
+    @DisplayName("Verify PackageSpec correctly parses unpinned and pinned versions")
+    void testPackageSpecParsing() {
+        WowoolInstaller.PackageSpec unpinned = WowoolInstaller.PackageSpec.parse("dutch", "wowool-");
+        assertEquals("wowool-dutch", unpinned.name());
+        assertNull(unpinned.version(), "Unpinned spec should have null version");
+
+        WowoolInstaller.PackageSpec pinnedAt = WowoolInstaller.PackageSpec.parse("dutch@3.2.8", "wowool-");
+        assertEquals("wowool-dutch", pinnedAt.name());
+        assertEquals("3.2.8", pinnedAt.version());
+
+        WowoolInstaller.PackageSpec pinnedEquals = WowoolInstaller.PackageSpec.parse("wowool-dutch==3.2.8", "wowool-");
+        assertEquals("wowool-dutch", pinnedEquals.name());
+        assertEquals("3.2.8", pinnedEquals.version());
+
+        WowoolInstaller.PackageSpec cpp = WowoolInstaller.PackageSpec.parse("wowool-sdk-cpp", null);
+        assertEquals("wowool-sdk-cpp", cpp.name());
+        assertNull(cpp.version());
+    }
+
+    @Test
+    @DisplayName("Verify model introspection lists available languages and domains")
+    void testModelIntrospection(@TempDir Path tempDir) throws Exception {
+        Path modelsDir = tempDir.resolve("lxware/wowool");
+        Files.createDirectories(modelsDir);
+
+        Files.createFile(modelsDir.resolve("dutch@3.2.8.language"));
+        Files.createFile(modelsDir.resolve("english.language"));
+        Files.createFile(modelsDir.resolve("dutch-entity@3.2.8.dom"));
+        Files.createFile(modelsDir.resolve("dutch-anonymizer@3.2.8.dom"));
+        Files.createFile(modelsDir.resolve("english-entity.dom"));
+
+        List<String> langs = WowoolPaths.listAvailableLanguages(tempDir);
+        assertEquals(2, langs.size());
+        assertTrue(langs.contains("dutch (v3.2.8)"));
+        assertTrue(langs.contains("english"));
+
+        List<String> dutchDomains = WowoolPaths.listAvailableDomains(tempDir, "dutch");
+        assertEquals(2, dutchDomains.size());
+        assertTrue(dutchDomains.contains("entity (v3.2.8)"));
+        assertTrue(dutchDomains.contains("anonymizer (v3.2.8)"));
+
+        List<String> englishDomains = WowoolPaths.listAvailableDomains(tempDir, "english");
+        assertEquals(1, englishDomains.size());
+        assertTrue(englishDomains.contains("entity"));
     }
 }
