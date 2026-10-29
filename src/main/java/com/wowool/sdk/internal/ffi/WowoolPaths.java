@@ -88,9 +88,10 @@ public final class WowoolPaths {
             names.add("libwowool.so");
             names.add("libwowool.dylib");
         } else {
-            names.add("libwowool.3.4.1.dylib");
-            names.add("libwowool.3.3.2.dylib");
-            names.add("libwowool.dylib");
+            names.add("wowool.dll");
+            names.add("libwowool.3.4.1.dll");
+            names.add("libwowool.3.3.2.dll");
+            names.add("libwowool.dll");
             names.add("libwowool.so");
         }
         return Collections.unmodifiableList(names);
@@ -123,7 +124,7 @@ public final class WowoolPaths {
             }
         }
 
-        throw new WowoolException(buildMissingLicenseMessage(homeKey));
+        return "";
     }
 
     /**

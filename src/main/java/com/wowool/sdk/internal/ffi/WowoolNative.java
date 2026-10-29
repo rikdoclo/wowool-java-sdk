@@ -70,11 +70,35 @@ public final class WowoolNative {
             if (!Files.exists(wowoolLib)) {
                 wowoolLib = dylibDir.resolve("libwowool.so");
             }
+            if (!Files.exists(wowoolLib)) {
+                wowoolLib = dylibDir.resolve("wowool.dll");
+            }
 
             if (!Files.exists(wowoolLib)) {
                 throw new WowoolException(
-                        "Native library (libwowool.3.3.2.dylib / libwowool.dylib / libwowool.so) not found in "
+                        "Native library (libwowool.3.3.2.dylib / libwowool.dylib / libwowool.so / wowool.dll) not found in "
                                 + dylibDir);
+            }
+
+            if (wowoolLib.getFileName().toString().endsWith(".dll")) {
+                // Load dependencies first; Windows does not search the DLL's own directory
+                // for System.load'ed libraries.
+                for (String dep : new String[] { "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll",
+                        "msvcp140_1.dll", "msvcp140_2.dll", "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll",
+                        "concrt140.dll" }) {
+                    Path p = dylibDir.resolve(dep);
+                    if (Files.exists(p)) {
+                        System.load(p.toAbsolutePath().toString());
+                    }
+                }
+                try (var dlls = Files.list(dylibDir)) {
+                    for (Path p : (Iterable<Path>) dlls::iterator) {
+                        String n = p.getFileName().toString();
+                        if (n.startsWith("icu") && n.endsWith(".dll")) {
+                            System.load(p.toAbsolutePath().toString());
+                        }
+                    }
+                }
             }
 
             if (Files.exists(icuData)) {
@@ -88,17 +112,30 @@ public final class WowoolNative {
             Linker linker = Linker.nativeLinker();
 
             // Ensure WOWOOL_ROOT and WOWOOL_SDK_KEY are exported into the native process
-            // environment via POSIX setenv
-            linker.defaultLookup().find("setenv").ifPresent(setenvSym -> {
+            // environment via POSIX setenv (or _putenv_s from the UCRT on Windows)
+            boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+            linker.defaultLookup().find(windows ? "_putenv_s" : "setenv").ifPresent(setenvSym -> {
                 try (Arena a = Arena.ofConfined()) {
-                    MethodHandle setenv = linker.downcallHandle(setenvSym, FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+                    MethodHandle setenv = windows
+                            ? linker.downcallHandle(setenvSym, FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                                    ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                            : linker.downcallHandle(setenvSym, FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                                    ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
                     Path wowoolRoot = WowoolPaths.resolveWowoolRoot();
-                    setenv.invoke(a.allocateFrom("WOWOOL_ROOT"), a.allocateFrom(wowoolRoot.toString()), 1);
+                    String rootStr = wowoolRoot.toString();
+                    if (windows) {
+                        setenv.invoke(a.allocateFrom("WOWOOL_ROOT"), a.allocateFrom(rootStr));
+                    } else {
+                        setenv.invoke(a.allocateFrom("WOWOOL_ROOT"), a.allocateFrom(rootStr), 1);
+                    }
 
                     try {
                         String key = WowoolPaths.resolveLicenseKey();
-                        setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key), 1);
+                        if (windows) {
+                            setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key));
+                        } else {
+                            setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key), 1);
+                        }
                     } catch (Throwable ignored) {
                     }
                 } catch (Throwable ignored) {
