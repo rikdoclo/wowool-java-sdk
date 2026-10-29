@@ -59,6 +59,13 @@ public final class WowoolPaths {
     }
 
     /**
+     * Checks if the host operating system is Windows.
+     */
+    public static boolean isWindows() {
+        return OS_NAME.contains("win");
+    }
+
+    /**
      * Returns a normalized architecture identifier (e.g., "aarch64", "x86_64").
      */
     public static String normalizedArch() {
@@ -87,6 +94,11 @@ public final class WowoolPaths {
             names.add("libwowool.3.3.2.so");
             names.add("libwowool.so");
             names.add("libwowool.dylib");
+        } else if (isWindows()) {
+            names.add("wowool.dll");
+            names.add("libwowool.3.4.1.dll");
+            names.add("libwowool.3.3.2.dll");
+            names.add("libwowool.dll");
         } else {
             names.add("wowool.dll");
             names.add("libwowool.3.4.1.dll");
@@ -160,7 +172,8 @@ public final class WowoolPaths {
         // 2. Project-local directory and arch subdirectories
         candidates.add(Path.of("native/dylibs"));
         candidates.add(Path.of("native/lib"));
-        candidates.add(Path.of("native/lib", isMac() ? "darwin-" + arch : "linux-" + arch));
+        String osArchFolder = isMac() ? "darwin-" + arch : (isWindows() ? "windows-" + arch : "linux-" + arch);
+        candidates.add(Path.of("native/lib", osArchFolder));
         candidates.add(Path.of("native/lib", arch));
 
         // 3. Dynamic Python Virtualenv if active ($VIRTUAL_ENV or local .venv)
@@ -543,12 +556,5 @@ public final class WowoolPaths {
         sb.append("  2. Set environment variable:     export WOWOOL_ROOT=/path/to/wowool/models\n");
         sb.append("  3. Mount or unpack models into:  ~/.wowool/models/ or /opt/wowool/models/\n");
         return sb.toString();
-    }
-
-    private static String buildMissingLicenseMessage(Path homeKey) {
-        return "Wowool license key not found.\n" + "Actionable Remediation:\n"
-                + "  1. Set environment variable: export WOWOOL_SDK_KEY=\"<your-license-key>\"\n"
-                + "  2. Pass JVM property:        -Dwowool.license.key=\"<your-license-key>\"\n"
-                + "  3. Save key to file:         mkdir -p ~/.config/wowool && echo \"<key>\" > " + homeKey;
     }
 }

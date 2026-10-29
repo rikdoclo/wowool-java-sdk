@@ -27,6 +27,8 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Low-level Project Panama (Foreign Function &amp; Memory API - JEP 454)
@@ -62,41 +64,45 @@ public final class WowoolNative {
         try {
             Path icuData = dylibDir.resolve("libicudata.dylib");
             Path icuUc = dylibDir.resolve("libicuuc.dylib");
-            Path wowoolLib = dylibDir.resolve("libwowool.3.3.2.dylib");
+            Path wowoolLib = null;
 
-            if (!Files.exists(wowoolLib)) {
-                wowoolLib = dylibDir.resolve("libwowool.dylib");
-            }
-            if (!Files.exists(wowoolLib)) {
-                wowoolLib = dylibDir.resolve("libwowool.so");
-            }
-            if (!Files.exists(wowoolLib)) {
-                wowoolLib = dylibDir.resolve("wowool.dll");
+            for (String candidate : WowoolPaths.expectedLibraryNames()) {
+                Path p = dylibDir.resolve(candidate);
+                if (Files.exists(p)) {
+                    wowoolLib = p;
+                    break;
+                }
             }
 
-            if (!Files.exists(wowoolLib)) {
-                throw new WowoolException(
-                        "Native library (libwowool.3.3.2.dylib / libwowool.dylib / libwowool.so / wowool.dll) not found in "
-                                + dylibDir);
+            if (wowoolLib == null) {
+                throw new WowoolException("Native library (" + String.join(" / ", WowoolPaths.expectedLibraryNames())
+                        + ") not found in " + dylibDir);
             }
 
             if (wowoolLib.getFileName().toString().endsWith(".dll")) {
                 // Load dependencies first; Windows does not search the DLL's own directory
                 // for System.load'ed libraries.
-                for (String dep : new String[] { "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll",
+                for (String dep : new String[]{"vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll",
                         "msvcp140_1.dll", "msvcp140_2.dll", "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll",
-                        "concrt140.dll" }) {
+                        "concrt140.dll"}) {
                     Path p = dylibDir.resolve(dep);
                     if (Files.exists(p)) {
                         System.load(p.toAbsolutePath().toString());
                     }
                 }
-                try (var dlls = Files.list(dylibDir)) {
-                    for (Path p : (Iterable<Path>) dlls::iterator) {
+                try (Stream<Path> dlls = Files.list(dylibDir)) {
+                    List<Path> icuDlls = dlls.filter(p -> {
                         String n = p.getFileName().toString();
-                        if (n.startsWith("icu") && n.endsWith(".dll")) {
-                            System.load(p.toAbsolutePath().toString());
-                        }
+                        return n.startsWith("icu") && n.endsWith(".dll");
+                    }).sorted((p1, p2) -> {
+                        String n1 = p1.getFileName().toString();
+                        String n2 = p2.getFileName().toString();
+                        int r1 = n1.contains("dt") ? 0 : (n1.contains("uc") ? 1 : 2);
+                        int r2 = n2.contains("dt") ? 0 : (n2.contains("uc") ? 1 : 2);
+                        return Integer.compare(r1, r2);
+                    }).toList();
+                    for (Path p : icuDlls) {
+                        System.load(p.toAbsolutePath().toString());
                     }
                 }
             }
@@ -113,12 +119,13 @@ public final class WowoolNative {
 
             // Ensure WOWOOL_ROOT and WOWOOL_SDK_KEY are exported into the native process
             // environment via POSIX setenv (or _putenv_s from the UCRT on Windows)
-            boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+            boolean windows = WowoolPaths.isWindows();
             linker.defaultLookup().find(windows ? "_putenv_s" : "setenv").ifPresent(setenvSym -> {
                 try (Arena a = Arena.ofConfined()) {
                     MethodHandle setenv = windows
-                            ? linker.downcallHandle(setenvSym, FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                                    ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                            ? linker.downcallHandle(setenvSym,
+                                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                                            ValueLayout.ADDRESS))
                             : linker.downcallHandle(setenvSym, FunctionDescriptor.of(ValueLayout.JAVA_INT,
                                     ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
                     Path wowoolRoot = WowoolPaths.resolveWowoolRoot();
@@ -131,10 +138,12 @@ public final class WowoolNative {
 
                     try {
                         String key = WowoolPaths.resolveLicenseKey();
-                        if (windows) {
-                            setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key));
-                        } else {
-                            setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key), 1);
+                        if (key != null && !key.isBlank()) {
+                            if (windows) {
+                                setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key));
+                            } else {
+                                setenv.invoke(a.allocateFrom("WOWOOL_SDK_KEY"), a.allocateFrom(key), 1);
+                            }
                         }
                     } catch (Throwable ignored) {
                     }

@@ -61,7 +61,7 @@ class WowoolInstallerTest {
     }
 
     @Test
-    @DisplayName("Verify isInstalled returns true when binaries and models are present")
+    @DisplayName("Verify isInstalled returns true when binaries and models are present across platforms")
     void testIsInstalledWithCompleteStructure(@TempDir Path tempDir) throws Exception {
         Path libDir = tempDir.resolve("lib");
         Path modelsDir = tempDir.resolve("models/lxware/wowool");
@@ -70,7 +70,20 @@ class WowoolInstallerTest {
         Files.createDirectories(modelsDir);
         Files.createFile(libDir.resolve("libwowool.dylib"));
 
-        assertTrue(WowoolInstaller.isInstalled(tempDir), "Properly structured directory must report as installed");
+        assertTrue(WowoolInstaller.isInstalled(tempDir), "Darwin library structure must report as installed");
+    }
+
+    @Test
+    @DisplayName("Verify isInstalled recognizes Windows wowool.dll")
+    void testIsInstalledWithWindowsDll(@TempDir Path tempDir) throws Exception {
+        Path libDir = tempDir.resolve("lib");
+        Path modelsDir = tempDir.resolve("models/lxware/wowool");
+
+        Files.createDirectories(libDir);
+        Files.createDirectories(modelsDir);
+        Files.createFile(libDir.resolve("wowool.dll"));
+
+        assertTrue(WowoolInstaller.isInstalled(tempDir), "Windows wowool.dll structure must report as installed");
     }
 
     @Test

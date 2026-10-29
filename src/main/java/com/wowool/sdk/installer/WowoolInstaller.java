@@ -165,7 +165,8 @@ public final class WowoolInstaller {
         try (Stream<Path> stream = Files.list(libDir)) {
             hasBinary = stream.anyMatch(p -> {
                 String name = p.getFileName().toString();
-                return name.startsWith("libwowool.") && (name.endsWith(".dylib") || name.contains(".so") || name.endsWith(".dll"));
+                return (name.startsWith("libwowool.") || name.startsWith("wowool."))
+                        && (name.endsWith(".dylib") || name.contains(".so") || name.endsWith(".dll"));
             });
         } catch (IOException ignored) {
             return false;
@@ -323,10 +324,11 @@ public final class WowoolInstaller {
             platformMatcher = fn -> fn.contains("macosx") && (fn.contains("arm64") || fn.contains("universal2"));
         } else if (platform.startsWith("windows") || platform.startsWith("win")) {
             platformMatcher = fn -> fn.contains("win") && fn.contains("amd64");
-        } else if (platform.startsWith("linux") && platform.contains("x86_64")) {
+        } else if (platform.contains("aarch64") || platform.contains("arm64")) {
+            platformMatcher = fn -> fn.contains("manylinux") && (fn.contains("aarch64") || fn.contains("arm64"));
+        } else if (platform.contains("x86_64") || platform.contains("amd64") || platform.startsWith("linux")) {
             platformMatcher = fn -> fn.contains("manylinux") && fn.contains("x86_64");
-        }
-        else{
+        } else {
             throw new WowoolException("Unsupported platform: " + platform);
         }
 
@@ -517,7 +519,7 @@ public final class WowoolInstaller {
         if (WowoolPaths.isLinux()) {
             return "linux-" + WowoolPaths.normalizedArch();
         }
-        if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+        if (WowoolPaths.isWindows()) {
             return "windows-" + WowoolPaths.normalizedArch();
         }
         return "unknown-" + WowoolPaths.normalizedArch();

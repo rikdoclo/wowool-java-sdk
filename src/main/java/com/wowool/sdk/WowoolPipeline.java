@@ -67,8 +67,8 @@ public final class WowoolPipeline implements AutoCloseable {
         // 1. Create Analyzer
         String analyzerOpts;
         try {
-            analyzerOpts = MAPPER.writeValueAsString(
-                    Collections.singletonMap("language", languagePath.toAbsolutePath().toString()));
+            analyzerOpts = MAPPER
+                    .writeValueAsString(Collections.singletonMap("language", languagePath.toAbsolutePath().toString()));
         } catch (IOException e) {
             throw new WowoolException("Failed to serialize analyzer options: " + e.getMessage(), e);
         }

@@ -45,6 +45,8 @@ class PlatformDiagnosticsTest {
             assertTrue(names.contains("libwowool.3.3.2.dylib") || names.contains("libwowool.dylib"));
         } else if (WowoolPaths.isLinux()) {
             assertTrue(names.contains("libwowool.so.3.3.2") || names.contains("libwowool.so"));
+        } else if (WowoolPaths.isWindows()) {
+            assertTrue(names.contains("wowool.dll") || names.contains("libwowool.dll"));
         }
     }
 
