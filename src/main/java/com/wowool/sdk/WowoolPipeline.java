@@ -20,6 +20,7 @@ import com.wowool.sdk.internal.ffi.WowoolNative;
 import com.wowool.sdk.internal.ffi.WowoolPaths;
 import com.wowool.sdk.internal.json.WowoolJsonParser;
 import com.wowool.sdk.model.WowoolDocument;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -39,6 +40,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * {@link WowoolDocument} instances.
  */
 public final class WowoolPipeline implements AutoCloseable {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final WowoolEngine engine;
     private final Path languagePath;
@@ -62,7 +65,13 @@ public final class WowoolPipeline implements AutoCloseable {
         MemorySegment exInfo = WowoolNative.allocateExceptionInfo(arena);
 
         // 1. Create Analyzer
-        String analyzerOpts = "{\"language\":\"" + languagePath.toAbsolutePath() + "\"}";
+        String analyzerOpts;
+        try {
+            analyzerOpts = MAPPER
+                    .writeValueAsString(Collections.singletonMap("language", languagePath.toAbsolutePath().toString()));
+        } catch (IOException e) {
+            throw new WowoolException("Failed to serialize analyzer options: " + e.getMessage(), e);
+        }
         MemorySegment analyzerPtr = WowoolNative.createAnalyzer(engine.nativePointer(), analyzerOpts, arena, exInfo);
 
         // 2. Load Domains with exception safety

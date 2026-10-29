@@ -165,7 +165,8 @@ public final class WowoolInstaller {
         try (Stream<Path> stream = Files.list(libDir)) {
             hasBinary = stream.anyMatch(p -> {
                 String name = p.getFileName().toString();
-                return name.startsWith("libwowool.") && (name.endsWith(".dylib") || name.contains(".so"));
+                return (name.startsWith("libwowool.") || name.startsWith("wowool."))
+                        && (name.endsWith(".dylib") || name.contains(".so") || name.endsWith(".dll"));
             });
         } catch (IOException ignored) {
             return false;
@@ -321,10 +322,14 @@ public final class WowoolInstaller {
         Predicate<String> platformMatcher;
         if (platform.contains("darwin") || platform.contains("macosx") || platform.contains("mac")) {
             platformMatcher = fn -> fn.contains("macosx") && (fn.contains("arm64") || fn.contains("universal2"));
+        } else if (platform.startsWith("windows") || platform.startsWith("win")) {
+            platformMatcher = fn -> fn.contains("win") && fn.contains("amd64");
         } else if (platform.contains("aarch64") || platform.contains("arm64")) {
             platformMatcher = fn -> fn.contains("manylinux") && (fn.contains("aarch64") || fn.contains("arm64"));
-        } else {
+        } else if (platform.contains("x86_64") || platform.contains("amd64") || platform.startsWith("linux")) {
             platformMatcher = fn -> fn.contains("manylinux") && fn.contains("x86_64");
+        } else {
+            throw new WowoolException("Unsupported platform: " + platform);
         }
 
         String wheelUrl = resolveWheelUrl(new PackageSpec("wowool-sdk-cpp", null), platformMatcher);
@@ -347,10 +352,10 @@ public final class WowoolInstaller {
                 String fn = fileName.toString();
 
                 // Shared libraries (*.dylib, *.so, *.so.*)
-                if (fn.contains(".dylib") || fn.contains(".so")) {
+                if (fn.contains(".dylib") || fn.contains(".so") || fn.endsWith(".dll")) {
                     Path dest = libDir.resolve(fn);
                     Files.copy(zis, dest, StandardCopyOption.REPLACE_EXISTING);
-                } else if (fn.equals("afst++") || fn.equals("woc++") || fn.equals("wow++")) {
+                } else if (fn.matches("(afst|woc|wow)\\+\\+(\\.exe)?")) {
                     Path dest = binDir.resolve(fn);
                     Files.copy(zis, dest, StandardCopyOption.REPLACE_EXISTING);
                     makeExecutableSafe(dest);
@@ -473,6 +478,7 @@ public final class WowoolInstaller {
                     return fn.startsWith("libwowool.so.") && !fn.equals("libwowool.so");
                 }).findFirst().ifPresent(target -> createSymlinkSafe(canonicalLinux, target.getFileName()));
             }
+
         } catch (IOException ignored) {
         }
     }
@@ -512,6 +518,9 @@ public final class WowoolInstaller {
         }
         if (WowoolPaths.isLinux()) {
             return "linux-" + WowoolPaths.normalizedArch();
+        }
+        if (WowoolPaths.isWindows()) {
+            return "windows-" + WowoolPaths.normalizedArch();
         }
         return "unknown-" + WowoolPaths.normalizedArch();
     }
